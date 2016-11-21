@@ -8,20 +8,18 @@
 onload = function() {
 	var render = {
 		env:{clear_color:[0,0,0,1.0]},
-		vshader:{
-			src: document.getElementById('vshader').innerText
-		},
-		fshader:{
-			src: document.getElementById('fshader').innerText
-		},
-		model:[
-			{ //plane
+		vshader:{ src: document.getElementById('vshader').innerText },
+		fshader:{ src: document.getElementById('fshader').innerText },
+		model:[{ //plane
 				mode:"tri_strip",
 				vtx_at:["position"],
 				vtx:[1,1,0, 1,-1,0, -1,1,0, -1,-1,0,],
 				idx:[0,1,2,3]
-			}
-		]
+			}],
+		fs_uni:{
+			param1:1,
+			mouse:[0,0],
+		}
 	}
 	var wwg = new WWG() ;
 	if(!wwg.init(document.getElementById('screen1'))) {
@@ -34,7 +32,13 @@ onload = function() {
 	}).catch(function(err){
 		console.log(err) ;
 	})
-
+	// add intraction
+	document.getElementById('i_p1').addEventListener("input", function(e){
+		wwg.draw([{fs_uni:{param1:this.value/1000}}]) ;
+	})
+	document.getElementById('screen1').addEventListener("mousemove", function(ev){
+		wwg.draw([{fs_uni:{mouse:[ev.offsetX/400,1-ev.offsetY/400]}}]) ;
+	})
 } //onload
 </script>
 <! --------------- Vertex Shader ---------------- ->
@@ -50,13 +54,16 @@ onload = function() {
 <! --------------- Fragment Shader ---------------- ->
 <script id="fshader" type="x-shader/x-fragment">
 	precision highp float;
+	uniform float param1 ;
+	uniform vec2 mouse ;
 	varying vec2 p ;
 	void main() {
 		float nx = (p.x+1.0)/2.0 ;
 		float ny = (p.y+1.0)/2.0 ;
-		gl_FragColor = vec4(1.0-nx,ny,nx,1.0) ;
+		gl_FragColor = vec4(nx*mouse.x,ny*mouse.y,param1,1.0) ;
 	}
 </script>
 </head>
 <body>
-<canvas id="screen1" width="400px" height="400px"></canvas>
+<canvas id="screen1" width="400px" height="400px"></canvas><br/>
+<input type=range id=i_p1 min=0 max=1000 style="width:400px">
