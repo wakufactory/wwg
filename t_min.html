@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>WWG simple sample</title>
+<script src="WWG.js"></script>
+<script>
+onload = function() {
+
+	var render = {
+		env:{clear_color:[0.5,0.5,0.6,1.0]},
+		vshader:{
+			src: document.getElementById('vshader').innerText
+		},
+		fshader:{
+			src: document.getElementById('fshader').innerText
+		},
+		vs_uni:{
+			mvpMatrix:[0.5,0,0,0, 0,0.5,0,0, 0,0,1,0, 0,0,0,1],
+		},
+		model:[
+			{ //model1
+				mode:"tri_strip",
+				vtx_at:["position","vcolor"],
+				vtx:[
+					1,1,0,//pos
+					1.0,0,0,1.0,//vcolor
+					1,-1,0,
+					0,1.0,0,1.0,
+					-1,1,0,
+					0,0,1.0,1.0,
+					-1,-1,0,
+					1.0,1.0,1.0,1.0
+				],
+				idx:[0,1,2,3]
+			}
+		]
+	}
+	var wwg = new WWG() ;
+	if(!wwg.init(document.getElementById('screen1'))) {
+		alert("not supported") ;
+		return ;
+	}
+	//parse render data
+	wwg.setRender(render).then(function() { ;
+		wwg.draw() ;
+	}).catch(function(err){
+		console.log(err) ;
+	})
+
+} //onload
+</script>
+<! --------------- Vertex Shader ---------------- ->
+<script id="vshader" type="x-shader/x-vertex">
+	uniform mat4 mvpMatrix;
+
+	attribute vec3 position;
+	attribute vec4 vcolor ;
+
+	varying vec4 pcolor;
+
+	void main() {
+		pcolor = vcolor;
+		gl_Position = mvpMatrix * vec4(position, 1.0) ;
+	}
+</script>
+
+<! --------------- Fragment Shader ---------------- ->
+<script id="fshader" type="x-shader/x-fragment">
+	precision highp float;
+
+	varying vec4 pcolor;
+
+	void main() {
+		gl_FragColor = pcolor ;
+	}
+</script>
+</head>
+<body>
+<canvas id="screen1" width="400px" height="400px"></canvas>

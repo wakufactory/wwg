@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>WebGL test 3D View Object</title>
+<script src="/js/jquery.js"></script>
+<script src="../CanvasMatrix.js"></script>
+<script src="../utl.js"></script>
+<script src="WWG.js"></script>
+<script>
+function $I(e) {return document.getElementById(e);} 
+
+onload = function() {
+var wwg = new WWG() ;
+if(!wwg.init(document.getElementById('screen1'))) {
+	alert("not supported") ;
+	return ;
+}
+
+
+var render = {
+	output:null,
+	env:{clear_color:[0.5,0.5,0.6,1.0]},
+	vshader:{
+		src: document.getElementById('vshader').innerText
+	},
+	fshader:{
+		src: document.getElementById('fshader').innerText
+	},
+	vs_uni:{
+		mvpMatrix:[0.5,0,0,0, 0,0.5,0,0, 0,0,1,0, 0,0,0,1],
+		normMatrix:[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],
+
+		lightVec:[0,1,0,0],
+		vmode:5,
+		vofs:[0,0,0],
+		vmag:0.0
+	},
+	fs_uni:{
+		mode:0
+	},
+	model:[
+		{ //model1
+			mode:"tri_strip",
+			vtx_at:["position","normal","vcolor"],
+			vtx:[
+				1,1,0,//pos
+				1,1,0,//norm
+				1.0,0,0,1.0,//vcolor
+				1,-1,0,
+				1,1,0,//norm
+				0,1.0,0,1.0,
+				-1,1,0,
+				1,1,0,//norm
+				0,0,1.0,1.0,
+				-1,-1,0,
+				1,1,0,//norm
+				0.2,0.2,0.2,1.0
+			],
+			idx:[0,1,2,3],
+			vs_uni:{
+				mvpMatrix:[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],
+				normMatrix:[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],
+			},
+			fs_uni:{
+				texture:{src:"tex.png"},
+			}
+		},
+
+		{ //model2
+			mode:"tri_strip",
+			vtx_at:["position","vcolor"],
+			vtx:[
+				1,-1,1,//pos
+				1.0,1.0,0,1.0,//vcolor
+				1,-1,-1,
+				0,1.0,1.0,1.0,
+				-1,-1,1,
+				1.0,0,1.0,1.0,
+				-1,-1,-1,
+				1.0,1.0,1.0,1.0
+			],
+			idx:[0,1,2,3],
+			vs_uni:{
+				mvpMatrix:[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],
+				normMatrix:[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],
+			},
+			instance:[
+				{pos:[0,0,0],color:[0,0,0,0]},
+				{pos:[0,0,0],color:[0,0,0,0]}
+			]
+		}
+
+	]
+}
+//console.log(JSON.stringify(render)) ;
+
+// model modulation at time 
+var mmod = [
+	{vs_uni:{mvpMatrix:render.model[0].vs_uni.mvpMatrix}},
+	{vs_uni:{mvpMatrix:render.model[1].vs_uni.mvpMatrix}}
+]
+function update(tint,sf) {
+	//model matrix update
+	var dx = sf*0.3 ;
+
+	var mm = new CanvasMatrix4();
+	mm.rotate(tint/10,1,0,0) ;
+
+	var mvpMatrix = new CanvasMatrix4(mm);
+	mvpMatrix.translate(dx, 0, -6);	
+	mvpMatrix.perspective(35,1.0, 0.1, 1000);
+	mmod[0].vs_uni.mvpMatrix = mvpMatrix.getAsWebGLFloatArray() ;
+
+	var normalMatrix = new CanvasMatrix4(mm);
+	normalMatrix.invert();
+	normalMatrix.transpose();
+	mmod[0].vs_uni.normalMatrix = normalMatrix.getAsWebGLFloatArray();
+	mmod[0].vs_uni.vmode = 2 ;
+	
+	var mm = new CanvasMatrix4();
+	mm.rotate(tint/100,0,1,0) ;
+
+	var mvpMatrix = new CanvasMatrix4(mm);
+	mvpMatrix.translate(dx, 0, -6);	
+	mvpMatrix.perspective(35,1.0, 0.1, 1000);
+	mmod[1].vs_uni.mvpMatrix = mvpMatrix.getAsWebGLFloatArray() ;
+
+	var normalMatrix = new CanvasMatrix4(mm);
+	normalMatrix.invert();
+	normalMatrix.transpose();
+	mmod[1].vs_uni.normalMatrix = normalMatrix.getAsWebGLFloatArray();
+	mmod[1].vs_uni.vmode = 5 ;
+
+	return mmod ;	
+}
+
+//parse render data
+wwg.setRender(render).then(function() { ;
+	console.log(wwg);
+
+	var st = new Date().getTime() ;
+	var lt = st ;
+	// render loop
+	(function loop(){
+		window.requestAnimationFrame(loop) ;
+		var ct = new Date().getTime() ;
+		var tint = (ct - st) ;
+		if((ct - lt)<100) return ;
+
+		//draw call
+		wwg.gl.viewport(0-30,0,400,400) ;
+		wwg.draw(update(tint,1),tint,true) ;
+		//draw call
+		wwg.gl.viewport(400+30,0,400,400) ;
+		wwg.draw(update(tint,-1),tint,false) ;
+		$I('fps').innerHTML = Math.floor(1000/(ct - lt)+0.5) ;
+		lt = ct ;
+	})();
+}).catch(function(err){
+	console.log(err) ;
+})
+
+} //onload
+</script>
+<! --------------- Vertex Shader ---------------- ->
+<script id="vshader" type="x-shader/x-vertex">
+	uniform mat4 mvpMatrix;
+	uniform mat4 normalMatrix;
+	uniform vec4 lightVec;
+	uniform int vmode ;
+	uniform vec3 vofs ;
+	uniform float vmag ;
+
+	attribute vec3 position;
+	attribute vec3 normal;
+	attribute vec2 uv;
+	attribute vec4 vcolor ;
+	attribute vec3 mmod ;
+
+	varying vec4 pcolor;
+	varying vec2 texCoord;
+	varying float light ;
+	varying vec3 norm;
+
+	void main() {
+		vec3	n	 = (normalMatrix * vec4(normal, 0.0)).xyz;
+		light = clamp(dot(n, lightVec.xyz), 0.0, 1.0) * 0.7 + 0.3;
+		if(vmode==2) {
+			pcolor = vec4(light, light, light, 1.0)* vcolor;
+		} else if(vmode==5) {
+			pcolor = vcolor;
+		} else {
+			pcolor = vec4(light, light, light, 1.0) ;
+		}
+		texCoord	= uv;
+		vec3 pos = position + mmod.xyz * vofs ;
+
+		gl_Position = mvpMatrix * vec4(pos, 1.0) ;
+		norm = n ;
+		gl_PointSize = 2.0 ;
+	}
+</script>
+
+<! --------------- Fragment Shader ---------------- ->
+<script id="fshader" type="x-shader/x-fragment">
+	precision highp float;
+
+	uniform sampler2D texture;
+	uniform int mode ;
+
+	varying vec4 pcolor;
+	varying vec2 texCoord;
+	varying float light ;
+	varying vec3 norm;
+
+	void main() {
+		if(mode==3) { //texture
+//			gl_FragColor = texture2D(texture, texCoord) * pcolor *1.2;
+
+		} else if(mode==5) { //toon shader
+
+			float l = light ;
+			if(l>0.85) l = 1.0 ;
+			else if(l>0.32) l = 0.7 ;
+			else l = 0.3 ;
+			vec4 c ;
+			if( abs(dot(normalize(norm) , normalize(vec3(0,0,1)))) < 0.25 ) c = vec4(0,0,0,1.0) ;
+			else c = pcolor;
+			gl_FragColor = vec4(l, l, l, 1.0)* c;
+		}else 
+			gl_FragColor = pcolor ;
+	}
+</script>
+
+<style>
+div.ff {
+	width:800px ;
+	border:1px dotted silver ;
+	border-radius:10px ;
+	padding:10px ;
+	margin:10px ;
+}
+canvas {
+	cursor:pointer ;
+}
+
+</style>
+</head>
+<body>
+<canvas id="screen1"	width="800px" height="400px"></canvas>
+<br/><div id=fps></div>
+<form name=f>
+<div class=ff>
+3D View:<input type=radio name=pc value=1 checked>Parallel
+<input type=radio name=pc value=2>Cross
+<br/>
+stereo base:<input type=range name=base min=0 max=10 step=any value=5>
+<br/>
+</div>
+<div class=ff>
+Render:
+<input type=radio name=tex value=1 checked>WF
+<input type=radio name=tex value=2>SURFACE
+<input type=radio name=tex value=3>TEX
+<input type=radio name=tex value=4>POINTS
+<input type=radio name=tex value=5>TOON
+<br/>
+Animate:<input type=checkbox name=animate checked>
+<br/>
+speed: 
+rotate:<input type=range name=speed1 min=0 max=10 step=any value=1>
+expand:<input type=range name=speed2 min=0 max=20 step=any value=5>
+</div>	
+</form>
+</body>
+</html>
