@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>WWG simple sample</title>
+<script src="WWG.js"></script>
+<script>
+onload = function() {
+	var render = {
+		env:{clear_color:[0,0,0,1.0]},
+		vshader:{
+			src: document.getElementById('vshader').innerText
+		},
+		fshader:{
+			src: document.getElementById('fshader').innerText
+		},
+		model:[
+			{ //plane
+				mode:"tri_strip",
+				vtx_at:["position"],
+				vtx:[1,1,0, 1,-1,0, -1,1,0, -1,-1,0,],
+				idx:[0,1,2,3]
+			}
+		]
+	}
+	var wwg = new WWG() ;
+	if(!wwg.init(document.getElementById('screen1'))) {
+		alert("not supported") ;
+		return ;
+	}
+	//parse render data
+	wwg.setRender(render).then(function() { ;
+		wwg.draw() ;
+	}).catch(function(err){
+		console.log(err) ;
+	})
+
+} //onload
+</script>
+<! --------------- Vertex Shader ---------------- ->
+<script id="vshader" type="x-shader/x-vertex">
+	attribute vec3 position;
+	varying vec2 p ;
+	void main() {
+		gl_Position = vec4(position, 1.0) ;
+		p = vec2(position.x,position.y) ;
+	}
+</script>
+
+<! --------------- Fragment Shader ---------------- ->
+<script id="fshader" type="x-shader/x-fragment">
+	precision highp float;
+	varying vec2 p ;
+	void main() {
+		float nx = (p.x+1.0)/2.0 ;
+		float ny = (p.y+1.0)/2.0 ;
+		gl_FragColor = vec4(1.0-nx,ny,nx,1.0) ;
+	}
+</script>
+</head>
+<body>
+<canvas id="screen1" width="400px" height="400px"></canvas>
