@@ -194,7 +194,7 @@ WWG.prototype.setObj = function(obj,flag) {
 WWG.prototype.setModel =function(models) {
 }
 
-WWG.prototype.draw = function(models,tint,cls) {
+WWG.prototype.draw = function(models,cls) {
 
 	if(!cls) this.clear() ;
 	for(var b=0;b<this.obuf.length;b++) {
