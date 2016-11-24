@@ -2,8 +2,9 @@ function WWG() {
 	this.can = null ;
 	this.gl = null ;
 	this.env = {} ;
-	this.vsize = {"vec2":2,"vec3":3,"vec4":4,"mat4":16} ;
+	this.vsize = {"float":1,"vec2":2,"vec3":3,"vec4":4,"mat2":4,"mat3":9,"mat4":16} ;
 	this.obuf = [] ;
+	this.texture = [] ;
 }
 WWG.prototype.init = function(canvas) {
 	this.can = canvas ;
@@ -13,12 +14,19 @@ WWG.prototype.init = function(canvas) {
 		console.log('vertex array object not supported'); 
     	return false ;
     }
+    this.ext_inst = this.gl.getExtension('ANGLE_instanced_arrays');
 	return true ;
 }
 
 WWG.prototype.setUnivec = function(type,pos,value) {
 //	console.log("set "+type+" = "+value) ;
 	switch(type) {
+		case "mat2":
+			this.gl.uniformMatrix2fv(pos,false,this.f32Array(value)) ;
+			break ;
+		case "mat3":
+			this.gl.uniformMatrix3fv(pos,false,this.f32Array(value)) ;
+			break ;
 		case "mat4":
 			this.gl.uniformMatrix4fv(pos,false,this.f32Array(value)) ;
 			break ;
@@ -37,101 +45,169 @@ WWG.prototype.setUnivec = function(type,pos,value) {
 		case "float":
 			this.gl.uniform1f(pos,value) ;
 			break ;
+		case "sampler2D":
+			this.gl.activeTexture(this.gl.TEXTURE0+value);
+			this.gl.bindTexture(this.gl.TEXTURE_2D, this.texobj[value]);
+			this.gl.uniform1i(pos,value) ;
+			break ;
 	}
 }
 
-WWG.prototype.setRender =function(render) {
+WWG.prototype.setShader = function(render,resolve,reject) {
 	function parse_shader(src) {
-		var l = src.split(";") ;
+		var l = src.split("\n") ;
 		var uni = [] ;
 		var att = [] ;
 		for(i=0;i<l.length;i++) {
 			var ln = l[i] ;
-			if( ln.match(/^\s*uniform ([0-9a-z]+) ([0-9a-z]+)/i)) {
+			if( ln.match(/^\s*uniform\s*([0-9a-z]+)\s*([0-9a-z_]+)/i)) {
 				uni.push( {type:RegExp.$1,name:RegExp.$2}) ;
 			}
-			if( ln.match(/^\s*attribute ([0-9a-z]+) ([0-9a-z]+)/i)) {
+			if( ln.match(/^\s*attribute\s*([0-9a-z]+)\s*([0-9a-z_]+)/i)) {
 				att.push( {type:RegExp.$1,name:RegExp.$2}) ;
 			}
 		}
 		return {uni:uni,att:att} ;
 	}
+	if(!render.vshader) { reject("no vshader") ;return false;}
+	if(!render.fshader) { reject("no fshader") ;return false;}
+	var gl = this.gl ;
+
+	var vshader = gl.createShader(gl.VERTEX_SHADER);
+	gl.shaderSource(vshader, render.vshader.src);
+	gl.compileShader(vshader);
+	if(!gl.getShaderParameter(vshader, gl.COMPILE_STATUS)) {
+		reject("vs error:"+gl.getShaderInfoLog(vshader)); return false;
+	}
+	this.vshader = vshader ;
+
+	var fshader = gl.createShader(gl.FRAGMENT_SHADER);
+	gl.shaderSource(fshader, render.fshader.src);
+	gl.compileShader(fshader);
+	if(!gl.getShaderParameter(fshader, gl.COMPILE_STATUS)) {
+		reject("fs error:"+gl.getShaderInfoLog(fshader)); return false;
+	}
+	this.fshader = fshader ;
+	
+	var program = gl.createProgram();
+	gl.attachShader(program, vshader);
+	gl.attachShader(program, fshader);
+	gl.linkProgram(program);
+	if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+		reject("link error:"+gl.getProgramInfoLog(program)); return false;
+	}
+	this.program = program ;
+	gl.useProgram(program);
+
+	var vr = parse_shader(render.vshader.src) ;	
+//		console.log(vr) ;
+	this.vs_att = {} ;	
+	for(var i in vr.att) {
+		vr.att[i].pos = gl.getAttribLocation(program,vr.att[i].name) ;
+		this.vs_att[vr.att[i].name] = vr.att[i] ;
+	}
+	this.vs_uni = {} ;
+	for(var i in vr.uni) {
+		vr.uni[i].pos = gl.getUniformLocation(program,vr.uni[i].name) ;
+		this.vs_uni[vr.uni[i].name] = vr.uni[i] ;
+	}
+
+	var fr = parse_shader(render.fshader.src) ;		
+//		console.log(fr) ;
+	this.fs_uni = {} ;
+	for(var i in fr.uni) {
+		fr.uni[i].pos = gl.getUniformLocation(program,fr.uni[i].name) ;
+		this.fs_uni[fr.uni[i].name] = fr.uni[i] ;
+	}
+	return true ;
+}
+WWG.prototype.setUniValues = function(data) {
+	if(data.vs_uni) {
+	for(var i in data.vs_uni) {
+		if(this.vs_uni[i]) {
+			this.setUnivec(this.vs_uni[i].type, this.vs_uni[i].pos, data.vs_uni[i]) ;
+		} else return false ;
+	}
+	}
+	if(data.fs_uni) {
+	for(var i in data.fs_uni) {
+		if(this.fs_uni[i]) {
+			this.setUnivec(this.fs_uni[i].type, this.fs_uni[i].pos, data.fs_uni[i]) ;
+		} else return false ;
+	}
+	}
+	return true ;
+}
+WWG.prototype.loadTex = function(tex) {
+	var self = this ;
+	var gl = this.gl ;
+	function texobj(img) {
+		var tex = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, tex);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+		gl.generateMipmap(gl.TEXTURE_2D);
+		gl.bindTexture(gl.TEXTURE_2D, null);	
+		return tex ;	
+	}
+	return new Promise(function(resolve,reject) {
+		if(tex.src) {
+			var img = new Image() ;
+			img.onload = function() {
+				resolve( texobj(img) ) ;
+			}
+			img.onerror = function() {
+				reject("cannot load image") ;
+			}
+			img.src = tex.src ;
+		} else if(tex.img instanceof Image) {
+			resolve( texobj(tex.img) ) 
+		}
+	})
+}
+WWG.prototype.setRender =function(render) {
+
 	this.env = render.env ;
 	this.render = render ;
 	var self = this ;
 	var gl = this.gl ;
 	return new Promise(function(resolve,reject) {
 		if(!gl) { reject("no init") ;return ;}
-		if(!render.vshader) { reject("no vshader") ;return ;}
-		if(!render.fshader) { reject("no fshader") ;return ;}
 
-		var vshader = gl.createShader(gl.VERTEX_SHADER);
-		gl.shaderSource(vshader, render.vshader.src);
-		gl.compileShader(vshader);
-		if(!gl.getShaderParameter(vshader, gl.COMPILE_STATUS)) {
-			reject("vs error:"+gl.getShaderInfoLog(vshader)); return ;
-		}
-		self.vshader = vshader ;
-
-		var fshader = gl.createShader(gl.FRAGMENT_SHADER);
-		gl.shaderSource(fshader, render.fshader.src);
-		gl.compileShader(fshader);
-		if(!gl.getShaderParameter(fshader, gl.COMPILE_STATUS)) {
-			reject("fs error:"+gl.getShaderInfoLog(fshader)); return ;
-		}
-		self.fshader = fshader ;
+		if(!self.setShader(render,resolve,reject)) return ;
 		
-		var program = gl.createProgram();
-		gl.attachShader(program, vshader);
-		gl.attachShader(program, fshader);
-		gl.linkProgram(program);
-		if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-			reject("link error:"+gl.getProgramInfoLog(program)); return;
-		}
-		self.program = program ;
-		gl.useProgram(program);
-
-		var vr = parse_shader(render.vshader.src) ;	
-//		console.log(vr) ;
-		self.vs_att = {} ;	
-		for(var i in vr.att) {
-			vr.att[i].pos = gl.getAttribLocation(program,vr.att[i].name) ;
-			self.vs_att[vr.att[i].name] = vr.att[i] ;
-		}
-		self.vs_uni = {} ;
-		for(var i in vr.uni) {
-			vr.uni[i].pos = gl.getUniformLocation(program,vr.uni[i].name) ;
-			self.vs_uni[vr.uni[i].name] = vr.uni[i] ;
-		}
-
-		var fr = parse_shader(render.fshader.src) ;		
-//		console.log(fr) ;
-		self.fs_uni = {} ;
-		for(var i in fr.uni) {
-			fr.uni[i].pos = gl.getUniformLocation(program,fr.uni[i].name) ;
-			self.fs_uni[fr.uni[i].name] = fr.uni[i] ;
-		}
+		// load textures
+		if(render.texture) {
+			var texobjs = [] ;
+			var pr = [] ;
+			for(var i=0;i<render.texture.length;i++) {
+				pr[i] = self.loadTex( render.texture[i]) ;
+			}
+			Promise.all(pr).then(function(result) {
+				console.log(result) ;
+				self.texobj = result ;
+				
+				// set initial values
+				if(!self.setUniValues(render)) {
+					reject("no uniform name") ;
+					return ;
+				}
+				
+//				gl.enable(gl.CULL_FACE);
+				gl.frontFace(gl.CCW);	
+				gl.enable(gl.DEPTH_TEST);	
 		
-		// set initial values
-		for(var i in render.vs_uni) {
-			if(self.vs_uni[i]) {
-				self.setUnivec(self.vs_uni[i].type, self.vs_uni[i].pos, render.vs_uni[i]) ;
-			}
+				//set model 
+				for(var i =0;i<render.model.length;i++) {
+					self.obuf[i] = self.setObj( render.model[i],true) ;
+				}
+				resolve(self) ;
+				
+			}).catch(function(err) {
+				console.log(err) ;
+			})
 		}
-		for(var i in render.fs_uni) {
-			if(self.fs_uni[i]) {
-				self.setUnivec(self.fs_uni[i].type, self.fs_uni[i].pos, render.fs_uni[i]) ;
-			}
-		}
-//		gl.enable(gl.CULL_FACE);
-		gl.frontFace(gl.CW);	
-		gl.enable(gl.DEPTH_TEST);	
 
-		//set model 
-		for(var i =0;i<render.model.length;i++) {
-			self.obuf[i] = self.setObj( render.model[i],true) ;
-		}
-		resolve(self) ;
+
 	});
 }
 WWG.prototype.clear = function() {
@@ -194,31 +270,23 @@ WWG.prototype.setObj = function(obj,flag) {
 WWG.prototype.setModel =function(models) {
 }
 
-WWG.prototype.draw = function(models,cls) {
+WWG.prototype.draw = function(update,cls) {
 
 	if(!cls) this.clear() ;
 	for(var b=0;b<this.obuf.length;b++) {
+		var cmodel = this.render.model[b] ;
 		this.ext_vao.bindVertexArrayOES(this.obuf[b].vao);
-		
-		if(models) {
-		var model =models[b] ;
-		
-		// set modified values
-		if(model.vs_uni) {
-			for(var i in model.vs_uni) {
-				if(this.vs_uni[i]) {
-					this.setUnivec(this.vs_uni[i].type, this.vs_uni[i].pos, model.vs_uni[i]) ;
-				}
-			}
+		this.setUniValues(cmodel) ;
+		if(update) {
+			var model =update[b] ;
+			// set modified values
+			if(model) this.setUniValues(model) ;
 		}
-		if(model.fs_uni) {
-			for(var i in model.fs_uni) {
-				if(this.fs_uni[i]) {
-					this.setUnivec(this.fs_uni[i].type, this.fs_uni[i].pos, model.fs_uni[i]) ;
-				}
-			}
+
+		switch(cmodel.mode) {
+			case "tri_strip":
+				this.gl.drawElements(this.gl.TRIANGLE_STRIP, cmodel.idx.length, this.gl.UNSIGNED_SHORT, 0);
+				break ;
 		}
-		}
-		this.gl.drawElements(this.gl.TRIANGLE_STRIP, 4, this.gl.UNSIGNED_SHORT, 0);
 	}
 }
