@@ -26,18 +26,19 @@ onload = function() {
 		alert("not supported") ;
 		return ;
 	}
+	var r = wwg.createRender() ;
 	//parse render data
-	wwg.setRender(render).then(function() { ;
-		wwg.draw() ;
+	r.setRender(render).then(function() { ;
+		r.draw() ;
 	}).catch(function(err){
 		console.log(err) ;
 	})
 	// add intraction
 	document.getElementById('i_p1').addEventListener("input", function(e){
-		wwg.draw([{fs_uni:{param1:this.value/1000}}]) ;
+		r.draw([{fs_uni:{param1:this.value/1000}}]) ;
 	})
 	document.getElementById('screen1').addEventListener("mousemove", function(ev){
-		wwg.draw([{fs_uni:{mouse:[ev.offsetX/400,1-ev.offsetY/400]}}]) ;
+		r.draw([{fs_uni:{mouse:[ev.offsetX/400,1-ev.offsetY/400]}}]) ;
 	})
 } //onload
 </script>

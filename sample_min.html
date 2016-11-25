@@ -41,10 +41,15 @@ onload = function() {
 		alert("not supported") ;
 		return ;
 	}
+	console.log(wwg) ;
+	//create render unit
+	var r = wwg.createRender() ;
 	//parse render data
-	wwg.setRender(render).then(function() { ;
-		wwg.draw() ;
+	r.setRender(render).then(function() {
+		console.log(r) ;
+		r.draw() ;
 	}).catch(function(err){
+		console.log("err") ;
 		console.log(err) ;
 	})
 
