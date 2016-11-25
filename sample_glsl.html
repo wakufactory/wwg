@@ -8,8 +8,8 @@
 onload = function() {
 	var render = {
 		env:{clear_color:[0,0,0,1.0]},
-		vshader:{ src: document.getElementById('vshader').innerText },
-		fshader:{ src: document.getElementById('fshader').innerText },
+		vshader:{ text: document.getElementById('vshader').innerText },
+		fshader:{ text: document.getElementById('fshader').innerText },
 		model:[{ //plane
 				mode:"tri_strip",
 				vtx_at:["position"],

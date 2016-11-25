@@ -14,7 +14,24 @@ WWG.prototype.init = function(canvas) {
     this.ext_inst = this.gl.getExtension('ANGLE_instanced_arrays');
 	return true ;
 }
-
+WWG.prototype.loadAjax = function(src) {
+	return new Promise(function(resolve,reject) {
+		var req = new XMLHttpRequest();
+		req.open("get",src,true) ;
+		req.responseType = "text" ;
+		req.onload = function() {
+			if(this.status==200) {
+				resolve(this.response) ;
+			} else {
+				reject("Ajax error:"+this.statusText) ;					
+			}
+		}
+		req.onerror = function() {
+			reject("Ajax error:"+this.statusText)
+		}
+		req.send() ;
+	})
+}
 // Render unit
 WWG.prototype.createRender = function() {
 	return new this.Render(this) ;
@@ -76,60 +93,86 @@ WWG.prototype.Render.prototype.setShader = function(render) {
 		}
 		return {uni:uni,att:att} ;
 	}
+
 	var gl = this.gl ;
 	var self = this ;
 	return new Promise(function(resolve,reject) {
 
 		if(!render.vshader) { reject("no vshader") ;return false;}
 		if(!render.fshader) { reject("no fshader") ;return false;}
-	
-		var vshader = gl.createShader(gl.VERTEX_SHADER);
-		gl.shaderSource(vshader, render.vshader.src);
-		gl.compileShader(vshader);
-		if(!gl.getShaderParameter(vshader, gl.COMPILE_STATUS)) {
-			reject("vs error:"+gl.getShaderInfoLog(vshader)); return false;
+		var vss ;
+		var fss ;
+		var pr = [] ;
+		if(render.vshader.text ) vss = render.vshader.text ;
+		else if(render.vshader.src) {
+			pr.push( self.wwg.loadAjax(render.vshader.src).then(function(result) {
+				vss = result ;
+				resolve() ;
+			}).catch(function(err) {
+				reject(err) ;
+			}))
 		}
-		self.vshader = vshader ;
-	
-		var fshader = gl.createShader(gl.FRAGMENT_SHADER);
-		gl.shaderSource(fshader, render.fshader.src);
-		gl.compileShader(fshader);
-		if(!gl.getShaderParameter(fshader, gl.COMPILE_STATUS)) {
-			reject("fs error:"+gl.getShaderInfoLog(fshader)); return false;
+		if(render.fshader.text ) fss = render.fshader.text ;
+		else if(render.fshader.src) {
+			pr.push( self.wwg.loadAjax(render.fshader.src).then(function(result) {
+				fss = result ;
+				resolve() ;
+			}).catch(function(err) {
+				reject(err) ;
+			}))
 		}
-		self.fshader = fshader ;
+		Promise.all(pr).then(function() {
+
+			var vshader = gl.createShader(gl.VERTEX_SHADER);
+			gl.shaderSource(vshader, vss);
+			gl.compileShader(vshader);
+			if(!gl.getShaderParameter(vshader, gl.COMPILE_STATUS)) {
+				reject("vs error:"+gl.getShaderInfoLog(vshader)); return false;
+			}
+			self.vshader = vshader ;
 		
-		var program = gl.createProgram();
-		gl.attachShader(program, vshader);
-		gl.attachShader(program, fshader);
-		gl.linkProgram(program);
-		if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-			reject("link error:"+gl.getProgramInfoLog(program)); return false;
-		}
-		self.program = program ;
-		gl.useProgram(program);
-	
-		var vr = parse_shader(render.vshader.src) ;	
-	//		console.log(vr) ;
-		self.vs_att = {} ;	
-		for(var i in vr.att) {
-			vr.att[i].pos = gl.getAttribLocation(program,vr.att[i].name) ;
-			self.vs_att[vr.att[i].name] = vr.att[i] ;
-		}
-		self.vs_uni = {} ;
-		for(var i in vr.uni) {
-			vr.uni[i].pos = gl.getUniformLocation(program,vr.uni[i].name) ;
-			self.vs_uni[vr.uni[i].name] = vr.uni[i] ;
-		}
-	
-		var fr = parse_shader(render.fshader.src) ;		
-	//		console.log(fr) ;
-		self.fs_uni = {} ;
-		for(var i in fr.uni) {
-			fr.uni[i].pos = gl.getUniformLocation(program,fr.uni[i].name) ;
-			self.fs_uni[fr.uni[i].name] = fr.uni[i] ;
-		}
-		resolve() ;
+			var fshader = gl.createShader(gl.FRAGMENT_SHADER);
+			gl.shaderSource(fshader, fss);
+			gl.compileShader(fshader);
+			if(!gl.getShaderParameter(fshader, gl.COMPILE_STATUS)) {
+				reject("fs error:"+gl.getShaderInfoLog(fshader)); return false;
+			}
+			self.fshader = fshader ;
+			
+			var program = gl.createProgram();
+			gl.attachShader(program, vshader);
+			gl.attachShader(program, fshader);
+			gl.linkProgram(program);
+			if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+				reject("link error:"+gl.getProgramInfoLog(program)); return false;
+			}
+			self.program = program ;
+			gl.useProgram(program);
+		
+			var vr = parse_shader(vss) ;	
+		//		console.log(vr) ;
+			self.vs_att = {} ;	
+			for(var i in vr.att) {
+				vr.att[i].pos = gl.getAttribLocation(program,vr.att[i].name) ;
+				self.vs_att[vr.att[i].name] = vr.att[i] ;
+			}
+			self.vs_uni = {} ;
+			for(var i in vr.uni) {
+				vr.uni[i].pos = gl.getUniformLocation(program,vr.uni[i].name) ;
+				self.vs_uni[vr.uni[i].name] = vr.uni[i] ;
+			}
+		
+			var fr = parse_shader(fss) ;		
+		//		console.log(fr) ;
+			self.fs_uni = {} ;
+			for(var i in fr.uni) {
+				fr.uni[i].pos = gl.getUniformLocation(program,fr.uni[i].name) ;
+				self.fs_uni[fr.uni[i].name] = fr.uni[i] ;
+			}
+			resolve() ;
+		}).catch(function(err){
+			reject(err) ;
+		}) ;
 	})
 }
 WWG.prototype.Render.prototype.setUniValues = function(data) {
