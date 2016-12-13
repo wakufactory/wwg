@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>WWG simple sample</title>
+<script src="js/WWG.js"></script>
+<script>
+onload = function() {
+
+	var render = {
+		env:{clear_color:[0.5,0.5,0.6,1.0]},
+		vshader:{
+			text: document.getElementById('vshader').innerText
+		},
+		fshader:{
+			text: document.getElementById('fshader').innerText
+		},
+		vs_uni:{
+			mvpMatrix:[0.5,0,0,0, 0,0.5,0,0, 0,0,1,0, 0,0,0,1],
+		},
+		texture:[
+			{src:"res/tex2.jpg"}
+		],
+		model:[
+			{ //model1
+				mode:"tri_strip",
+				vtx_at:["position","uv"],
+				vtx:[
+					1,1,0,//pos
+					1.0,1.0,//uv
+					1,-1,0,
+					1.0,0,
+					-1,1,0,
+					0,1.0,
+					-1,-1,0,
+					0,0
+				],
+				idx:[0,1,2,3],
+				fs_uni:{
+					tex1:0
+				},
+			}
+		]
+	}
+	var wwg = new WWG() ;
+	if(!wwg.init(document.getElementById('screen1'))) {
+		alert("not supported") ;
+		return ;
+	}
+	console.log(wwg) ;
+	//create render unit
+	var r = wwg.createRender() ;
+	//parse render data
+	r.setRender(render).then(function() {
+		console.log(r) ;
+		r.draw() ;
+	}).catch(function(err){
+		console.log("err") ;
+		console.log(err) ;
+	})
+//	while(1) {} ;
+
+} //onload
+</script>
+<! --------------- Vertex Shader ---------------- ->
+<script id="vshader" type="x-shader/x-vertex">
+	uniform mat4 mvpMatrix;
+
+	attribute vec3 position;
+	attribute vec2 uv;
+
+	varying vec2 texCoord;
+
+	void main() {
+		texCoord	= vec2(uv.x,-uv.y);
+		gl_Position = mvpMatrix * vec4(position, 1.0) ;
+	}
+</script>
+
+<! --------------- Fragment Shader ---------------- ->
+<script id="fshader" type="x-shader/x-fragment">
+	precision highp float;
+	
+	uniform sampler2D tex1;
+
+	varying vec2 texCoord;
+
+	void main() {
+		gl_FragColor = texture2D(tex1, texCoord);
+	}
+</script>
+</head>
+<body>
+<canvas id="screen1" width="400px" height="400px"></canvas>

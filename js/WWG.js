@@ -1,3 +1,8 @@
+//WWG Simple WebGL wrapper library
+// Version 1.0 
+// 2016 wakufactory.jp 
+// license: MIT 
+
 function WWG() {
 	this.can = null ;
 	this.gl = null ;
@@ -84,7 +89,7 @@ WWG.prototype.Render.prototype.setShader = function(render) {
 		var att = [] ;
 		for(i=0;i<l.length;i++) {
 			var ln = l[i] ;
-			if( ln.match(/^\s*uniform\s*([0-9a-z]+)\s*([0-9a-z_]+)/i)) {
+			if( ln.match(/^\s*uniform\s*([0-9a-z]+)\s*([0-9a-z_]+)(\[[0-9]+\])?/i)) {
 				uni.push( {type:RegExp.$1,name:RegExp.$2}) ;
 			}
 			if( ln.match(/^\s*attribute\s*([0-9a-z]+)\s*([0-9a-z_]+)/i)) {
@@ -121,8 +126,7 @@ WWG.prototype.Render.prototype.setShader = function(render) {
 				reject(err) ;
 			}))
 		}
-		Promise.all(pr).then(function() {
-
+		Promise.all(pr).then(function(res) {
 			var vshader = gl.createShader(gl.VERTEX_SHADER);
 			gl.shaderSource(vshader, vss);
 			gl.compileShader(vshader);
@@ -150,7 +154,6 @@ WWG.prototype.Render.prototype.setShader = function(render) {
 			gl.useProgram(program);
 		
 			var vr = parse_shader(vss) ;	
-		//		console.log(vr) ;
 			self.vs_att = {} ;	
 			for(var i in vr.att) {
 				vr.att[i].pos = gl.getAttribLocation(program,vr.att[i].name) ;
@@ -163,7 +166,6 @@ WWG.prototype.Render.prototype.setShader = function(render) {
 			}
 		
 			var fr = parse_shader(fss) ;		
-		//		console.log(fr) ;
 			self.fs_uni = {} ;
 			for(var i in fr.uni) {
 				fr.uni[i].pos = gl.getUniformLocation(program,fr.uni[i].name) ;
@@ -207,6 +209,7 @@ WWG.prototype.Render.prototype.loadTex = function(tex) {
 		if(tex.src) {
 			var img = new Image() ;
 			img.onload = function() {
+				console.log("tex loaded") ;
 				resolve( texobj(img) ) ;
 			}
 			img.onerror = function() {
@@ -214,6 +217,7 @@ WWG.prototype.Render.prototype.loadTex = function(tex) {
 			}
 			img.src = tex.src ;
 		} else if(tex.img instanceof Image) {
+			console.log("tex obj") ;
 			resolve( texobj(tex.img) ) 
 		}
 	})
@@ -229,12 +233,15 @@ WWG.prototype.Render.prototype.setRender =function(render) {
 		var pr = [] ;
 		self.setShader(render).then(function() {
 			// load textures
+
 			if(render.texture) {
 				for(var i=0;i<render.texture.length;i++) {
 					pr.push(self.loadTex( render.texture[i])) ;
 				}
 			}
+
 			Promise.all(pr).then(function(result) {
+				console.log(result) ;
 				self.texobj = result ;
 				
 				// set initial values
@@ -250,6 +257,7 @@ WWG.prototype.Render.prototype.setRender =function(render) {
 				for(var i =0;i<render.model.length;i++) {
 					self.obuf[i] = self.setObj( render.model[i],true) ;
 				}
+				console.log(self.obuf);
 				resolve(self) ;
 				
 			}).catch(function(err) {
@@ -289,6 +297,9 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 	}
 	tl = tl*4 ;
 	var ofs = 0 ;
+	for(var i in this.vs_att ) {
+		this.gl.disableVertexAttribArray(this.vs_att[i].pos);
+	}
 	for(var i=0;i<ats.length;i++) {
 		var s = this.wwg.vsize[ats[i].type] ;
 		this.gl.enableVertexAttribArray(this.vs_att[ats[i].name].pos);
@@ -319,7 +330,7 @@ WWG.prototype.Render.prototype.setModel =function(models) {
 }
 
 WWG.prototype.Render.prototype.draw = function(update,cls) {
-
+//	console.log("draw");
 	if(!cls) this.clear() ;
 	for(var b=0;b<this.obuf.length;b++) {
 		var cmodel = this.render.model[b] ;
@@ -335,6 +346,23 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 			case "tri_strip":
 				this.gl.drawElements(this.gl.TRIANGLE_STRIP, cmodel.idx.length, this.gl.UNSIGNED_SHORT, 0);
 				break ;
+			case "tri":
+				this.gl.drawElements(this.gl.TRIANGLES, cmodel.idx.length, this.gl.UNSIGNED_SHORT, 0);
+				break ;
+			case "points":
+				this.gl.drawElements(this.gl.POINTS, cmodel.idx.length, this.gl.UNSIGNED_SHORT, 0);
+				break ;
+			case "lines":
+				this.gl.drawElements(this.gl.LINES, cmodel.idx.length, this.gl.UNSIGNED_SHORT, 0);
+				break ;
+			case "line_strip":
+				this.gl.drawElements(this.gl.LINE_STRIP, cmodel.idx.length, this.gl.UNSIGNED_SHORT, 0);
+				break ;
+			default:
+				console.log("Error: illigal draw mode") ;
+				return false ;
 		}
+		this.wwg.ext_vao.bindVertexArrayOES(null);
 	}
+	return true ;
 }

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>WWG simple sample</title>
+<script src="js/WWG.js"></script>
+<script src="js/CanvasMatrix.js"></script>
+<script src="js/WWModel.js"></script>
+
+<script>
+onload = function() {
+
+	var render = {
+		env:{clear_color:[0.5,0.5,0.6,1.0]},
+		vshader:{
+			text: document.getElementById('vshader').innerText
+		},
+		fshader:{
+			text: document.getElementById('fshader').innerText
+		},
+		vs_uni:{
+			mvpMatrix:new CanvasMatrix4().
+			rotate(-30,0,1,0).
+			scale(0.5,0.5,0.5).
+			translate(0,-1.0,0).
+			lookat(0,0,5,0,0,0,0,1,0).
+			perspective(40,1.0, 0.1, 1000).getAsWebGLFloatArray(),
+			normMatrix:new CanvasMatrix4().
+			rotate(-30,0,1,0).
+			scale(0.5,0.5,0.5).
+			translate(0,-1.0,0).
+			invert().getAsWebGLFloatArray(),
+		},
+		fs_uni:{
+			lightVec:[0,1,1],
+			color:[1.0,0.5,0.5,1.0]
+		},
+		model:[]
+	}
+	var wwg = new WWG() ;
+	if(!wwg.init(document.getElementById('screen1'))) {
+		alert("not supported") ;
+		return ;
+	}
+	console.log(wwg) ;
+	//create render unit
+	var r = wwg.createRender() ;
+	//load obj file 
+	var m= new WWModel() ;
+	m.loadObj("res/teapot.obj.txt").then(function(data) {
+		if(data) {
+			render.model.push( data );
+		}
+		r.setRender(render).then(function() {
+			console.log(r) ;
+			r.draw() ;
+		}).catch(function(err){
+			console.log(err) ;
+		})
+	})
+
+} //onload
+</script>
+<! --------------- Vertex Shader ---------------- ->
+<script id="vshader" type="x-shader/x-vertex">
+	attribute vec3 position;
+	attribute vec3 norm;
+	
+	uniform mat4 mvpMatrix;
+	uniform mat4 normMatrix;
+
+	varying vec3 tnorm ;
+
+	void main() {
+		tnorm     = (normMatrix * vec4(norm, 0.0)).xyz;
+		gl_Position = mvpMatrix * vec4(position, 1.0) ;
+		gl_PointSize = 1.0 ;
+	}
+</script>
+
+<! --------------- Fragment Shader ---------------- ->
+<script id="fshader" type="x-shader/x-fragment">
+	precision highp float;
+	uniform vec3 lightVec ;
+	uniform vec4 color ;
+	varying vec3 tnorm ;
+
+	void main() {
+		float light =clamp(dot(tnorm, normalize(lightVec).xyz),0.0,1.0)*0.8+0.2;
+   		gl_FragColor  = vec4(light*color.x, light*color.y, light*color.z, 1.0);
+
+	}
+</script>
+</head>
+<body>
+<canvas id="screen1" width="400px" height="400px"></canvas>
