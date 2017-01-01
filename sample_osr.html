@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>WWG (offscreen)</title>
+<script src="js/WWG.js"></script>
+<script src="js/CanvasMatrix.js"></script>
+<script>
+onload = function() {
+	var wwg = new WWG() ;
+	if(!wwg.init(document.getElementById('screen1'))) {
+		alert("not supported") ;
+		return ;
+	}
+	//create render unit
+	var r1 = wwg.createRender() ;
+	var r2 = wwg.createRender() ;
+
+	var render1 = {
+		env:{clear_color:[1,0,0,1.0],
+			offscreen:{width:512,height:512}
+		},
+		vshader:{ text: document.getElementById('vshader1').innerText },
+		fshader:{ text: document.getElementById('fshader1').innerText },
+		model:[{ //plane
+				mode:"tri_strip",
+				vtx_at:["position"],
+				vtx:[1,1,0, 1,-1,0, -1,1,0, -1,-1,0,],
+				idx:[0,1,2,3]
+			}],
+		fs_uni:{
+			param1:0.5,
+			mouse:[0.5,0.5],
+		}
+	}
+	var render2 = {
+		env:{clear_color:[0.5,0.5,0.6,1.0]},
+		vshader:{text: document.getElementById('vshader2').innerText},
+		fshader:{text: document.getElementById('fshader2').innerText},
+		vs_uni:{
+			mvpMatrix:[0.5,0,0,0, 0,0.5,0,0, 0,0,1,0, 0,0,0,1],
+		},
+		texture:[
+			{buffer:r1}
+		],
+		model:[
+			{ //model1
+				mode:"tri_strip",
+				vtx_at:["position","uv"],
+				vtx:[
+					1,1,0,//pos
+					1.0,1.0,//uv
+					1,-1,0,
+					1.0,0,
+					-1,1,0,
+					0,1.0,
+					-1,-1,0,
+					0,0
+				],
+				idx:[0,1,2,3],
+				fs_uni:{
+					tex1:0
+				},
+			}
+		]
+	}
+
+	//parse render data
+	r1.setRender(render1).then(function() {
+		r2.setRender(render2).then(function() {
+			drawloop() ;
+		})
+	}).catch(function(err){
+		console.log(err) ;
+	})
+
+	function drawloop() {
+
+		var r1u = render1.fs_uni ;
+		document.getElementById('screen1').addEventListener("mousemove", 
+			function(ev){
+				r1u = {fs_uni:{mouse:[ev.offsetX/400,1-ev.offsetY/400]}} ;
+			})
+		var st = new Date().getTime() ;
+		var lt = st ;
+		(function loop(){
+			window.requestAnimationFrame(loop) ;
+			var ct = new Date().getTime() ;
+			var tint = (ct - st) ;
+			if((ct - lt)<30) return ;
+	
+			r1.draw(r1u) ;
+			r2.draw({vs_uni:{mvpMatrix:new CanvasMatrix4().
+				rotate(tint/20-90,0,1,0).
+				lookat(0,0,5, 0,0,0, 0,1,0).
+				perspective(40,1.0, 0.1, 1000).getAsWebGLFloatArray()}}
+			) ;
+//			$I('fps').innerHTML = Math.floor(1000/(ct - lt)+0.5) ;
+			lt = ct ;
+		})();	
+	}
+
+} //onload
+</script>
+<! --------------- Vertex Shader ---------------- ->
+<script id="vshader1" type="x-shader/x-vertex">
+	attribute vec3 position;
+	varying vec2 p ;
+	void main() {
+		gl_Position = vec4(position, 1.0) ;
+		p = vec2(position.x,position.y) ;
+	}
+</script>
+
+<! --------------- Fragment Shader ---------------- ->
+<script id="fshader1" type="x-shader/x-fragment">
+	precision highp float;
+	uniform float param1 ;
+	uniform vec2 mouse ;
+	varying vec2 p ;
+	void main() {
+		float nx = (p.x+1.0)/2.0 ;
+		float ny = (p.y+1.0)/2.0 ;
+		gl_FragColor = vec4(nx*mouse.x,ny*mouse.y,param1,1.0) ;
+	}
+</script>
+<! --------------- Vertex Shader ---------------- ->
+<script id="vshader2" type="x-shader/x-vertex">
+	uniform mat4 mvpMatrix;
+
+	attribute vec3 position;
+	attribute vec2 uv;
+
+	varying vec2 texCoord;
+
+	void main() {
+		texCoord	= vec2(uv.x,1.0-uv.y);
+		gl_Position = mvpMatrix * vec4(position, 1.0) ;
+	}
+</script>
+
+<! --------------- Fragment Shader ---------------- ->
+<script id="fshader2" type="x-shader/x-fragment">
+	precision highp float;
+	
+	uniform sampler2D tex1;
+
+	varying vec2 texCoord;
+
+	void main() {
+		gl_FragColor = texture2D(tex1, texCoord);
+	}
+</script>
+</head>
+<body>
+<canvas id="screen1" width="400px" height="400px"></canvas>

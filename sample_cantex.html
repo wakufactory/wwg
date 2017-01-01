@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>WWG (canvas texture)</title>
+<script src="js/WWG.js"></script>
+<script src="js/CanvasMatrix.js"></script>
+<script>
+onload = function() {
+	var wwg = new WWG() ;
+	if(!wwg.init(document.getElementById('screen1'))) {
+		alert("not supported") ;
+		return ;
+	}
+
+	var texcanvas = document.getElementById('texcanvas') ;
+	// draw on canvas 
+	var ctx = texcanvas.getContext("2d") ;
+	  ctx.beginPath();
+	  ctx.moveTo(10,10) ;
+	  ctx.lineTo(500,500) ;
+	  ctx.lineTo(10,500);
+	  ctx.stroke() ;
+	  ctx.font = "50px SourceHanSans-Regular" ;
+	  ctx.fillText("テキストを描きます",10,100);
+	 
+	var render = {
+		env:{clear_color:[0.5,0.5,0.6,1.0]},
+		vshader:{text: document.getElementById('vshader').innerText},
+		fshader:{text: document.getElementById('fshader').innerText},
+		vs_uni:{
+			mvpMatrix:[0.5,0,0,0, 0,0.5,0,0, 0,0,1,0, 0,0,0,1],
+		},
+		texture:[
+			{canvas:texcanvas}
+		],
+		model:[
+			{ //model1
+				mode:"tri_strip",
+				vtx_at:["position","uv"],
+				vtx:[
+					1,1,0,//pos
+					1.0,1.0,//uv
+					1,-1,0,
+					1.0,0,
+					-1,1,0,
+					0,1.0,
+					-1,-1,0,
+					0,0
+				],
+				idx:[0,1,2,3],
+				fs_uni:{
+					tex1:0
+				},
+			}
+		]
+	}
+	//create render unit
+	var r = wwg.createRender() ;
+
+	//parse render data
+	r.setRender(render).then(function() {
+			drawloop() ;
+	}).catch(function(err){
+		console.log(err) ;
+	})
+
+	function drawloop() {
+
+		var st = new Date().getTime() ;
+		var lt = st ;
+		(function loop(){
+			window.requestAnimationFrame(loop) ;
+			var ct = new Date().getTime() ;
+			var tint = (ct - st) ;
+			if((ct - lt)<30) return ;
+	
+			r.draw({vs_uni:{mvpMatrix:new CanvasMatrix4().
+				rotate(tint/20-90,0,1,0).
+				lookat(0,0,5, 0,0,0, 0,1,0).
+				perspective(40,1.0, 0.1, 1000).getAsWebGLFloatArray()}}
+			) ;
+//			$I('fps').innerHTML = Math.floor(1000/(ct - lt)+0.5) ;
+			lt = ct ;
+		})();	
+	}
+
+} //onload
+</script>
+<! --------------- Vertex Shader ---------------- ->
+<script id="vshader" type="x-shader/x-vertex">
+	uniform mat4 mvpMatrix;
+
+	attribute vec3 position;
+	attribute vec2 uv;
+
+	varying vec2 texCoord;
+
+	void main() {
+		texCoord	= vec2(uv.x,1.0-uv.y);
+		gl_Position = mvpMatrix * vec4(position, 1.0) ;
+	}
+</script>
+
+<! --------------- Fragment Shader ---------------- ->
+<script id="fshader" type="x-shader/x-fragment">
+	precision highp float;
+	
+	uniform sampler2D tex1;
+
+	varying vec2 texCoord;
+
+	void main() {
+		gl_FragColor = texture2D(tex1, texCoord);
+	}
+</script>
+<style>
+#texcanvas {
+	font-size:100px ;
+}
+</style>
+</head>
+<body>
+<canvas id="screen1" width="400px" height="400px"></canvas>
+<canvas id="texcanvas" width="512px" height="512px"></canvas>

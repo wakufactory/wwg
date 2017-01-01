@@ -2,16 +2,15 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<title>WWG simple sample</title>
+<title>WWG (objload)</title>
 <script src="js/WWG.js"></script>
 <script src="js/CanvasMatrix.js"></script>
 <script src="js/WWModel.js"></script>
-
+<script src="js/Pointer.js"></script>
 <script>
 onload = function() {
-
 	var render = {
-		env:{clear_color:[0.5,0.5,0.6,1.0]},
+		env:{clear_color:[0.4,0.4,0.4,1.0],cull:true},
 		vshader:{
 			text: document.getElementById('vshader').innerText
 		},
@@ -19,78 +18,136 @@ onload = function() {
 			text: document.getElementById('fshader').innerText
 		},
 		vs_uni:{
-			mvpMatrix:new CanvasMatrix4().
-			rotate(-30,0,1,0).
-			scale(0.5,0.5,0.5).
-			translate(0,-1.0,0).
-			lookat(0,0,5,0,0,0,0,1,0).
-			perspective(40,1.0, 0.1, 1000).getAsWebGLFloatArray(),
-			normMatrix:new CanvasMatrix4().
-			rotate(-30,0,1,0).
-			scale(0.5,0.5,0.5).
-			translate(0,-1.0,0).
-			invert().getAsWebGLFloatArray(),
 		},
 		fs_uni:{
-			lightVec:[0,1,1],
-			color:[1.0,0.5,0.5,1.0]
+			lightVec:[1,1,1],
+			color:[1.0,0.2,0.2,1.0],
+			mode:0
 		},
 		model:[]
 	}
+	function update(render,p) {
+		var modelMatrix = new CanvasMatrix4().
+			translate(0,p.ofsY,0).
+			rotate(p.rotY,0,1,0).
+			rotate(p.rotX,1,0,0)
+		var uni = {vs_uni:{
+			mvpMatrix:new CanvasMatrix4(modelMatrix).
+			lookat(0,0,10,0,0,0,0,1,0).
+			perspective(40,1.0, 0.1, 100).getAsWebGLFloatArray()},
+			fs_uni:{invMatrix:modelMatrix.invert().getAsWebGLFloatArray()},
+		} 
+		render.draw(uni,false) ;
+	}
+	var can = document.getElementById('screen1') ;
+	can.width= can.offsetWidth ;
+	can.height = can.offsetHeight ;
+
 	var wwg = new WWG() ;
-	if(!wwg.init(document.getElementById('screen1'))) {
+	if(!wwg.init(can)) {
 		alert("not supported") ;
 		return ;
 	}
-	console.log(wwg) ;
-	//create render unit
-	var r = wwg.createRender() ;
 	//load obj file 
 	var m= new WWModel() ;
-	m.loadObj("res/teapot.obj.txt").then(function(data) {
-		if(data) {
-			render.model.push( data );
-		}
+	var of = "res/bunny_l.obj" ;
+	var p = {rotX:0,rotY:0,ofsY:0}
+	
+	m.loadObj(of,1.5).then(function(data) {
+
+		var obj =  data.objNorm() ;
+		render.model.push( obj );			
+		render.model.push( data.normLines() );
+
+		//create render unit
+		var r = wwg.createRender() ;
 		r.setRender(render).then(function() {
 			console.log(r) ;
-			r.draw() ;
+			var rotX = 0 ,rotY = 0 ;
+			//draw first time
+			update(r,p);
+			
+			//mouse intraction
+			var mag = 300/can.width;
+			var m = new Pointer(can,{
+				down:function(d) {
+					return false ;
+				},
+				move:function(d) {
+					p.rotX = rotX+d.dy*mag ;
+					p.rotY = rotY+d.dx*mag ;
+					update(r,p) ;
+					return false ;
+				},
+				up:function(d) {
+					rotX += d.dy*mag ;
+					rotY += d.dx*mag; 	
+					return false ;
+				}
+			})
 		}).catch(function(err){
 			console.log(err) ;
 		})
+	}).catch(function(err){
+			console.log(err) ;
 	})
-
 } //onload
+
+function normv(vtx) {
+	var nv = [] ;
+	var n = vtx ;
+	var vm = 0.1
+	for(var i=0;i<n.length;) {
+		nv.push(n[i]) ;
+		nv.push(n[i+1]) ;
+		nv.push(n[i+2]) ;
+		nv.push(n[i]+n[i+3]*vm) ;
+		nv.push(n[i+1]+n[i+4]*vm) ;
+		nv.push(n[i+2]+n[i+5]*vm) ;
+		i += 6 ;
+	}
+	return  {mode:"lines",vtx_at:["position"],vtx:nv,fs_uni:{
+		color:[0.5,0.5,1.0,0.5],mode:1}} ;
+}
 </script>
 <! --------------- Vertex Shader ---------------- ->
 <script id="vshader" type="x-shader/x-vertex">
 	attribute vec3 position;
 	attribute vec3 norm;
-	
 	uniform mat4 mvpMatrix;
-	uniform mat4 normMatrix;
-
 	varying vec3 tnorm ;
 
 	void main() {
-		tnorm     = (normMatrix * vec4(norm, 0.0)).xyz;
+		tnorm     = norm ;
 		gl_Position = mvpMatrix * vec4(position, 1.0) ;
-		gl_PointSize = 1.0 ;
 	}
 </script>
 
 <! --------------- Fragment Shader ---------------- ->
 <script id="fshader" type="x-shader/x-fragment">
 	precision highp float;
+	uniform mat4 invMatrix;
 	uniform vec3 lightVec ;
 	uniform vec4 color ;
+	uniform int mode ;
 	varying vec3 tnorm ;
 
 	void main() {
-		float light =clamp(dot(tnorm, normalize(lightVec).xyz),0.0,1.0)*0.8+0.2;
-   		gl_FragColor  = vec4(light*color.x, light*color.y, light*color.z, 1.0);
-
+		float light =clamp(dot(tnorm, normalize(invMatrix * vec4(lightVec,0.0)).xyz),0.0,1.0)*0.8+0.2;
+   		gl_FragColor = (mode==0) ? vec4(light*color.x, light*color.y, light*color.z, 1.0):vec4(color.x,color.y,color.z,1.0);
 	}
 </script>
+<style>
+body {
+	margin:0 ;
+	background-color:#888 ;
+}
+canvas {
+	width:100vw ;
+	height:100vw ;
+
+}
+</style>
 </head>
 <body>
-<canvas id="screen1" width="400px" height="400px"></canvas>
+<canvas id="screen1" ></canvas>

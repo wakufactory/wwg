@@ -35,10 +35,10 @@ onload = function() {
 	})
 	// add intraction
 	document.getElementById('i_p1').addEventListener("input", function(e){
-		r.draw([{fs_uni:{param1:this.value/1000}}]) ;
+		r.draw({fs_uni:{param1:this.value/1000}}) ;
 	})
 	document.getElementById('screen1').addEventListener("mousemove", function(ev){
-		r.draw([{fs_uni:{mouse:[ev.offsetX/400,1-ev.offsetY/400]}}]) ;
+		r.draw({fs_uni:{mouse:[ev.offsetX/400,1-ev.offsetY/400]}}) ;
 	})
 } //onload
 </script>

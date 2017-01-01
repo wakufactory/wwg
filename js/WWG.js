@@ -48,7 +48,7 @@ WWG.prototype.Render = function(wwg) {
 	this.obuf = [] ;	
 }
 WWG.prototype.Render.prototype.setUnivec = function(type,pos,value) {
-//	console.log("set "+type+" = "+value) ;
+//	console.log("set "+type+"("+pos+") = "+value) ;
 	switch(type) {
 		case "mat2":
 			this.gl.uniformMatrix2fv(pos,false,this.f32Array(value)) ;
@@ -127,6 +127,8 @@ WWG.prototype.Render.prototype.setShader = function(render) {
 			}))
 		}
 		Promise.all(pr).then(function(res) {
+//			console.log(vss) ;
+//			console.log(fss) ;
 			var vshader = gl.createShader(gl.VERTEX_SHADER);
 			gl.shaderSource(vshader, vss);
 			gl.compileShader(vshader);
@@ -154,6 +156,7 @@ WWG.prototype.Render.prototype.setShader = function(render) {
 			gl.useProgram(program);
 		
 			var vr = parse_shader(vss) ;	
+//			console.log(vr) ;
 			self.vs_att = {} ;	
 			for(var i in vr.att) {
 				vr.att[i].pos = gl.getAttribLocation(program,vr.att[i].name) ;
@@ -165,7 +168,8 @@ WWG.prototype.Render.prototype.setShader = function(render) {
 				self.vs_uni[vr.uni[i].name] = vr.uni[i] ;
 			}
 		
-			var fr = parse_shader(fss) ;		
+			var fr = parse_shader(fss) ;	
+//			console.log(fr);	
 			self.fs_uni = {} ;
 			for(var i in fr.uni) {
 				fr.uni[i].pos = gl.getUniformLocation(program,fr.uni[i].name) ;
@@ -178,6 +182,7 @@ WWG.prototype.Render.prototype.setShader = function(render) {
 	})
 }
 WWG.prototype.Render.prototype.setUniValues = function(data) {
+	this.gl.useProgram(this.program);
 	if(data.vs_uni) {
 		for(var i in data.vs_uni) {
 			if(this.vs_uni[i]) {
@@ -194,23 +199,30 @@ WWG.prototype.Render.prototype.setUniValues = function(data) {
 	}
 	return true ;
 }
+WWG.prototype.Render.prototype.genTex = function(img) {
+	var gl = this.gl ;
+	var tex = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, tex);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+	gl.generateMipmap(gl.TEXTURE_2D);
+	//NEAREST LINEAR NEAREST_MIPMAP_NEAREST NEAREST_MIPMAP_LINEAR LINEAR_MIPMAP_NEAREST LINEAR_MIPMAP_LINEAR
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+//		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+//		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.bindTexture(gl.TEXTURE_2D, null);	
+	return tex ;	
+}
 WWG.prototype.Render.prototype.loadTex = function(tex) {
+//	console.log( tex);
 	var self = this ;
 	var gl = this.gl ;
-	function texobj(img) {
-		var tex = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, tex);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-		gl.generateMipmap(gl.TEXTURE_2D);
-		gl.bindTexture(gl.TEXTURE_2D, null);	
-		return tex ;	
-	}
+
 	return new Promise(function(resolve,reject) {
 		if(tex.src) {
 			var img = new Image() ;
 			img.onload = function() {
-				console.log("tex loaded") ;
-				resolve( texobj(img) ) ;
+				resolve( self.genTex(img) ) ;
 			}
 			img.onerror = function() {
 				reject("cannot load image") ;
@@ -218,9 +230,37 @@ WWG.prototype.Render.prototype.loadTex = function(tex) {
 			img.src = tex.src ;
 		} else if(tex.img instanceof Image) {
 			console.log("tex obj") ;
-			resolve( texobj(tex.img) ) 
+			resolve( self.genTex(tex.img) ) 
+		} else if(tex.buffer) {
+			console.log(tex.buffer);
+			resolve( tex.buffer.fb.t) ;
+		} else if(tex.canvas) {
+			resolve( self.genTex(tex.canvas)) ;
 		}
 	})
+}
+WWG.prototype.Render.prototype.frameBuffer = function(width,height) {
+	var gl = this.gl ;
+	console.log("create framebuffer "+width+"x"+height) ;
+	var frameBuffer = gl.createFramebuffer();
+	gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer);
+	//depth
+	var renderBuffer = gl.createRenderbuffer();
+	gl.bindRenderbuffer(gl.RENDERBUFFER, renderBuffer);
+	gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);	
+	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, renderBuffer);
+	//texture
+	var fTexture = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, fTexture);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fTexture, 0);
+	gl.bindTexture(gl.TEXTURE_2D, null);
+	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);	
+
+	return {width:width,height:height,f:frameBuffer,d:renderBuffer,t:fTexture}
 }
 WWG.prototype.Render.prototype.setRender =function(render) {
 
@@ -233,7 +273,6 @@ WWG.prototype.Render.prototype.setRender =function(render) {
 		var pr = [] ;
 		self.setShader(render).then(function() {
 			// load textures
-
 			if(render.texture) {
 				for(var i=0;i<render.texture.length;i++) {
 					pr.push(self.loadTex( render.texture[i])) ;
@@ -241,7 +280,7 @@ WWG.prototype.Render.prototype.setRender =function(render) {
 			}
 
 			Promise.all(pr).then(function(result) {
-				console.log(result) ;
+//				console.log(result) ;
 				self.texobj = result ;
 				
 				// set initial values
@@ -249,15 +288,19 @@ WWG.prototype.Render.prototype.setRender =function(render) {
 					reject("no uniform name") ;
 					return ;
 				}
-//				gl.enable(gl.CULL_FACE);
+				if(self.env.cull) gl.enable(gl.CULL_FACE);
 				gl.frontFace(gl.CCW);	
-				gl.enable(gl.DEPTH_TEST);	
+				if(!self.env.nodepth) gl.enable(gl.DEPTH_TEST);	
 		
 				//set model 
 				for(var i =0;i<render.model.length;i++) {
 					self.obuf[i] = self.setObj( render.model[i],true) ;
 				}
-				console.log(self.obuf);
+//				console.log(self.obuf);
+				
+				if(self.env.offscreen) {// renderbuffer 
+					self.fb = self.frameBuffer(self.env.offscreen.width,self.env.offscreen.height) ;	
+				}
 				resolve(self) ;
 				
 			}).catch(function(err) {
@@ -318,7 +361,7 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 	this.wwg.ext_vao.bindVertexArrayOES(vao);
 	if(flag) this.gl.bufferData(this.gl.ARRAY_BUFFER, 
 		this.f32Array(obj.vtx), this.gl.STATIC_DRAW) ;
-	if(flag) this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, 
+	if(flag && obj.idx) this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, 
 		this.i16Array(obj.idx),this.gl.STATIC_DRAW ) ;
 
 	this.wwg.ext_vao.bindVertexArrayOES(null);
@@ -331,38 +374,65 @@ WWG.prototype.Render.prototype.setModel =function(models) {
 
 WWG.prototype.Render.prototype.draw = function(update,cls) {
 //	console.log("draw");
+	var gl = this.gl ;
+	if(this.env.offscreen) {// renderbuffer 
+		gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb.f);
+		gl.viewport(0,0,this.fb.width,this.fb.height) ;
+	}
 	if(!cls) this.clear() ;
 	for(var b=0;b<this.obuf.length;b++) {
 		var cmodel = this.render.model[b] ;
-		this.wwg.ext_vao.bindVertexArrayOES(this.obuf[b].vao);
-		this.setUniValues(cmodel) ;
+		if(cmodel.hide) continue ;
+		var uval = this.render ;
+		this.setUniValues(this.render) ;
+		this.setUniValues(cmodel);
 		if(update) {
-			var model =update[b] ;
 			// set modified values
-			if(model) this.setUniValues(model) ;
+			this.setUniValues(update) ;
+			if(update.model) {
+				var model =update.model[b] ;
+				if(model) this.setUniValues(model) ;
+			}
 		}
+		if(cmodel.preFunction) {
+			cmodel.preFunction(gl,cmodel) ;
+		}
+		var ofs = 0 ;
+		this.wwg.ext_vao.bindVertexArrayOES(this.obuf[b].vao);
 
 		switch(cmodel.mode) {
 			case "tri_strip":
-				this.gl.drawElements(this.gl.TRIANGLE_STRIP, cmodel.idx.length, this.gl.UNSIGNED_SHORT, 0);
+				if(cmodel.idx) gl.drawElements(this.gl.TRIANGLE_STRIP, cmodel.idx.length, this.gl.UNSIGNED_SHORT, ofs);
+				else gl.drawArrays(gl.TRIANGLE_STRIP, ofs,cmodel.vtx.length/3);
 				break ;
 			case "tri":
-				this.gl.drawElements(this.gl.TRIANGLES, cmodel.idx.length, this.gl.UNSIGNED_SHORT, 0);
+				if(cmodel.idx) gl.drawElements(gl.TRIANGLES, cmodel.idx.length, this.gl.UNSIGNED_SHORT, ofs);
+				else gl.drawArrays(gl.TRIANGLES, ofs,cmodel.vtx.length/3);		
 				break ;
 			case "points":
-				this.gl.drawElements(this.gl.POINTS, cmodel.idx.length, this.gl.UNSIGNED_SHORT, 0);
+				if(cmodel.idx) gl.drawElements(gl.POINTS, cmodel.idx.length, this.gl.UNSIGNED_SHORT, ofs);
+				else gl.drawArrays(gl.POINTS, ofs,cmodel.vtx.length/3);
 				break ;
 			case "lines":
-				this.gl.drawElements(this.gl.LINES, cmodel.idx.length, this.gl.UNSIGNED_SHORT, 0);
+				if(cmodel.idx) gl.drawElements(gl.LINES, cmodel.idx.length, this.gl.UNSIGNED_SHORT, ofs);
+				else gl.drawArrays(this.gl.LINES, ofs,cmodel.vtx.length/3);
 				break ;
 			case "line_strip":
-				this.gl.drawElements(this.gl.LINE_STRIP, cmodel.idx.length, this.gl.UNSIGNED_SHORT, 0);
+				if(cmodel.idx) gl.drawElements(gl.LINE_STRIP, cmodel.idx.length, this.gl.UNSIGNED_SHORT, ofs);
+				else gl.drawArrays(gl.LINE_STRIP, ofs,cmodel.vtx.length/3);
 				break ;
 			default:
 				console.log("Error: illigal draw mode") ;
 				return false ;
 		}
 		this.wwg.ext_vao.bindVertexArrayOES(null);
+		if(cmodel.postFunction) {
+			cmodel.postFunction(gl,cmodel) ;
+		}
+	}
+	if(this.env.offscreen) {// unbind renderbuffer 
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.viewport(0,0,this.wwg.can.width,this.wwg.can.height) ;
 	}
 	return true ;
 }
