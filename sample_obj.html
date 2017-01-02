@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width" /> 
 <title>WWG (objload)</title>
 <script src="js/WWG.js"></script>
 <script src="js/CanvasMatrix.js"></script>
@@ -50,10 +51,10 @@ onload = function() {
 	}
 	//load obj file 
 	var m= new WWModel() ;
-	var of = "res/bunny_l.obj" ;
+	var of = "res/teapot.obj" ;
 	var p = {rotX:0,rotY:0,ofsY:0}
 	
-	m.loadObj(of,1.5).then(function(data) {
+	m.loadObj(of,0.03).then(function(data) {
 
 		var obj =  data.objNorm() ;
 		render.model.push( obj );			
@@ -93,32 +94,19 @@ onload = function() {
 	})
 } //onload
 
-function normv(vtx) {
-	var nv = [] ;
-	var n = vtx ;
-	var vm = 0.1
-	for(var i=0;i<n.length;) {
-		nv.push(n[i]) ;
-		nv.push(n[i+1]) ;
-		nv.push(n[i+2]) ;
-		nv.push(n[i]+n[i+3]*vm) ;
-		nv.push(n[i+1]+n[i+4]*vm) ;
-		nv.push(n[i+2]+n[i+5]*vm) ;
-		i += 6 ;
-	}
-	return  {mode:"lines",vtx_at:["position"],vtx:nv,fs_uni:{
-		color:[0.5,0.5,1.0,0.5],mode:1}} ;
-}
 </script>
 <! --------------- Vertex Shader ---------------- ->
 <script id="vshader" type="x-shader/x-vertex">
 	attribute vec3 position;
 	attribute vec3 norm;
+	attribute vec2 uv ;
 	uniform mat4 mvpMatrix;
 	varying vec3 tnorm ;
+	varying vec2 tuv ;
 
 	void main() {
 		tnorm     = norm ;
+		tuv = uv ;
 		gl_Position = mvpMatrix * vec4(position, 1.0) ;
 	}
 </script>
@@ -131,7 +119,7 @@ function normv(vtx) {
 	uniform vec4 color ;
 	uniform int mode ;
 	varying vec3 tnorm ;
-
+	varying vec2 tuv ;
 	void main() {
 		float light =clamp(dot(tnorm, normalize(invMatrix * vec4(lightVec,0.0)).xyz),0.0,1.0)*0.8+0.2;
    		gl_FragColor = (mode==0) ? vec4(light*color.x, light*color.y, light*color.z, 1.0):vec4(color.x,color.y,color.z,1.0);

@@ -87,7 +87,7 @@ CanvasMatrix4 = function(m)
 {
     if (typeof m == 'object') {
         if ("length" in m && m.length >= 16) {
-            this.load(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15]);
+            this.load(m);
             return this;
         }
         else if (m instanceof CanvasMatrix4) {
@@ -594,20 +594,15 @@ CanvasMatrix4.prototype.lookat = function(eyex, eyey, eyez, centerx, centery, ce
         zz /= mag;
     }
 
-    // Y vector
-    var yx = upx;
-    var yy = upy;
-    var yz = upz;
-
     // X vector = Y cross Z
-    xx =  yy * zz - yz * zy;
-    xy = -yx * zz + yz * zx;
-    xz =  yx * zy - yy * zx;
+    xx =  upy * zz - upz * zy;
+    xy = -upx * zz + upz * zx;
+    xz =  upx * zy - upy * zx;
 
     // Recompute Y = Z cross X
     yx = zy * xz - zz * xy;
     yy = -zx * xz + zz * xx;
-    yx = zx * xy - zy * xx;
+    yz = zx * xy - zy * xx;
 
     // cross product gives area of parallelogram, which is < 1.0 for
     // non-perpendicular unit-length vectors; so normalize x, y here
@@ -627,25 +622,25 @@ CanvasMatrix4.prototype.lookat = function(eyex, eyey, eyez, centerx, centery, ce
     }
 
     matrix.m11 = xx;
-    matrix.m12 = xy;
-    matrix.m13 = xz;
+    matrix.m12 = yx;
+    matrix.m13 = zx;
     matrix.m14 = 0;
     
-    matrix.m21 = yx;
+    matrix.m21 = xy;
     matrix.m22 = yy;
-    matrix.m23 = yz;
+    matrix.m23 = zy;
     matrix.m24 = 0;
     
-    matrix.m31 = zx;
-    matrix.m32 = zy;
+    matrix.m31 = xz;
+    matrix.m32 = yz;
     matrix.m33 = zz;
     matrix.m34 = 0;
     
-    matrix.m41 = 0;
-    matrix.m42 = 0;
-    matrix.m43 = 0;
+    matrix.m41 = -(xx * eyex + xy * eyey + xz * eyez);
+    matrix.m42 = -(yx * eyex + yy * eyey + yz * eyez);
+    matrix.m43 = -(zx * eyex + zy * eyey + zz * eyez);
     matrix.m44 = 1;
-    matrix.translate(-eyex, -eyey, -eyez);
+ //   matrix.translate(-eyex, -eyey, -eyez);
     
     this.multRight(matrix);
     return this ;

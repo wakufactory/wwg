@@ -250,7 +250,7 @@ WWG.prototype.Render.prototype.frameBuffer = function(width,height) {
 	gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);	
 	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, renderBuffer);
 	//texture
-	var fTexture = gl.createTexture();
+	var fTexture = gl.createTexture()
 	gl.bindTexture(gl.TEXTURE_2D, fTexture);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);

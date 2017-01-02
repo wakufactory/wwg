@@ -178,3 +178,82 @@ WWModel.prototype.normLines = function() {
 	return  {mode:"lines",vtx_at:["position"],vtx:nv,fs_uni:{
 		color:[0.5,0.5,1.0,0.5],mode:1}} ;
 }
+WWModel.prototype.primitive  = function(type,p) {
+	if(!p) p = {} ;
+	var wx = (p.wx)?p.wx:1.0 ;
+	var wy = (p.wy)?p.wy:1.0 ;
+	var wz = (p.wz)?p.wz:1.0 ;
+	var div = (p.div)?p.div:10 ;
+	var p = [] ;
+	var n = [] ;
+	var t = [] ;
+	var s = [] ;
+	var PHI = Math.PI *2 ;
+	switch(type) {
+	case "sphere":
+		for(var i = 0 ; i <= div ; ++i) {
+			var v = i / (0.0+div);
+			var y = Math.cos(Math.PI * v), r = Math.sin(Math.PI * v);
+			for(var j = 0 ; j <= div*2 ; ++j) {
+				var u = j / (0.0+div*2) ;
+				var x = (Math.cos(PHI * u) * r)
+				var z = (Math.sin(PHI * u) * r)
+				p.push([x*wx,y*wy,z*wz])
+				n.push([x,y,z])
+				t.push([1-u,1-v])
+			}
+		}
+		var d2 = div*2+1 ;
+		for(var j = 0 ; j < div ; ++j) {
+			var base = j * d2;
+			for(var i = 0 ; i < div*2 ; ++i) {
+				s.push(
+				[base + i,	  base + i + 1, base + i     + d2],
+				[base + i + d2, base + i + 1, base + i + 1 + d2]);
+			}
+		}
+		break;
+	case "box":
+		p = [
+			[wx,wy,wz],[wx,-wy,wz],[-wx,-wy,wz],[-wx,wy,wz],
+			[wx,wy,-wz],[wx,-wy,-wz],[-wx,-wy,-wz],[-wx,wy,-wz],
+			[wx,wy,wz],[wx,-wy,wz],[wx,-wy,-wz],[wx,wy,-wz],
+			[-wx,wy,wz],[-wx,-wy,wz],[-wx,-wy,-wz],[-wx,wy,-wz],
+			[wx,wy,wz],[wx,wy,-wz],[-wx,wy,-wz],[-wx,wy,wz],
+			[wx,-wy,wz],[wx,-wy,-wz],[-wx,-wy,-wz],[-wx,-wy,wz],
+		]
+		n = [
+			[0,0,1],[0,0,1],[0,0,1],[0,0,1],
+			[0,0,-1],[0,0,-1],[0,0,-1],[0,0,-1],
+			[1,0,0],[1,0,0],[1,0,0],[1,0,0],
+			[-1,0,0],[-1,0,0],[-1,0,0],[-1,0,0],
+			[0,1,0],[0,1,0],[0,1,0],[0,1,0],
+			[0,-1,0],[0,-1,0],[0,-1,0],[0,-1,0]
+		]
+		t = [
+			[1,1],[1,0],[0,0],[0,1],
+			[0,1],[0,0],[1,0],[1,1],
+			[0,1],[0,0],[1,0],[1,1],
+			[1,1],[1,0],[0,0],[0,1],
+			[1,0],[1,1],[0,1],[0,0],
+			[1,1],[1,0],[0,0],[0,1]
+		]
+		s = [
+			[3,1,0],[2,1,3],
+			[4,5,7],[7,5,6],
+			[8,9,11],[11,9,10],
+			[15,13,12],[14,13,15],	
+			[16,17,19],[19,17,18],
+			[23,21,20],[22,21,23],		
+		]
+		break ;
+	}
+	this.obj_v = p 
+	this.obj_n = n
+	this.obj_t = t
+	this.obj_i = s
+	console.log(p)
+	console.log(n)
+	console.log(t)
+	console.log(s)
+}

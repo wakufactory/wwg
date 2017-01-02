@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width" /> 
+<title>WWG (objload)</title>
+<script src="js/WWG.js"></script>
+<script src="js/CanvasMatrix.js"></script>
+<script src="js/WWModel.js"></script>
+<script src="js/Pointer.js"></script>
+<script>
+onload = function() {
+	var camMatrix = new CanvasMatrix4().
+			lookat(0,0,5,0,0,0,0,1,0).
+			perspective(40,1.0, 0.1, 100).getAsWebGLFloatArray();
+
+	var render = {
+		env:{clear_color:[0.4,0.4,0.4,1.0],cull:false},
+		vshader:{
+			text: document.getElementById('vshader').innerText
+		},
+		fshader:{
+			text: document.getElementById('fshader').innerText
+		},
+		vs_uni:{mvpMatrix:camMatrix},
+		fs_uni:{
+			lightVec:[1,1,1],
+			color:[1.0,0.2,0.2,1.0],
+			tex:0,
+			invMatrix:new CanvasMatrix4().getAsWebGLFloatArray(),
+			mode:3
+		},
+		texture:[
+			{src:"res/tex1.png"}
+		],
+		model:[
+		{mode:"lines",
+			vtx_at:["position"],
+			vtx:[0,0,0, 100,0,0, 0,0,0, 0,100,0, 0,0,0, 0,0,100],
+			fs_uni:{color:[1.0,1.0,1.0,1.0],mode:1}}
+		]
+	}
+
+	function update(render,p) {
+		var RAD = Math.PI/180 ;
+		var modelMatrix = new CanvasMatrix4().
+			translate(0,p.ofsY,0).
+			rotate(p.rotY,0,1,0).
+			rotate(p.rotX,1,0,0)
+//		console.log(modelMatrix) ;
+//console.log(p.camRX+"/"+p.camRY)
+		var camd= 10 ;
+		var camX = Math.sin(-p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
+		var camY = Math.sin(p.camRX*RAD)*camd ; 
+		var camZ = Math.cos(-p.camRY*RAD)*camd*Math.cos(p.camRX*RAD) 
+			
+		var camM = new CanvasMatrix4(modelMatrix).lookat(camX,camY,camZ,0,0,0,0,1,0).
+			perspective(40,1.0, 0.1, 100)
+		var uni = {vs_uni:{
+			mvpMatrix:camM.getAsWebGLFloatArray()},
+			fs_uni:{invMatrix:modelMatrix.invert().getAsWebGLFloatArray()},
+		} 
+		render.draw({model:[uni,uni,uni,uni,uni,]},false) ;
+	}
+	var can = document.getElementById('screen1') ;
+	can.width= can.offsetWidth ;
+	can.height = can.offsetHeight ;
+
+	var wwg = new WWG() ;
+	if(!wwg.init(can)) {
+		alert("not supported") ;
+		return ;
+	}
+	//generate primitive objects
+	var m1= new WWModel() ;
+	m1.primitive("sphere",{div:20}) ;
+	var o1 = m1.objNorm() ;
+	o1.fs_uni = {mode:2} ;
+	render.model.push( o1 );			
+	render.model.push( m1.normLines() );
+	var m2= new WWModel() ;
+	m2.primitive("box",{wz:0.5}) ;
+	render.model.push( m2.objNorm() );			
+	render.model.push( m2.normLines() );
+
+	var p = {rotX:0,rotY:0,ofsY:0}
+	//create render unit
+	var r = wwg.createRender() ;
+	r.setRender(render).then(function() {
+		console.log(r) ;
+		var rotX = 0 ,rotY = 0 ;
+		//draw first time
+		update(r,p);
+		
+		//mouse intraction
+		var mag = 300/can.width;
+		var m = new Pointer(can,{
+			down:function(d) {
+				return false ;
+			},
+			move:function(d) {
+				p.camRX = rotX+d.dy*mag ;
+				p.camRY = rotY+d.dx*mag ;
+				if(p.camRX>90)p.camRX=90 ;
+				if(p.camRX<-90)p.camRX=-90 ;
+
+				update(r,p) ;
+				return false ;
+			},
+			up:function(d) {
+				rotX += d.dy*mag ;
+				rotY += d.dx*mag; 	
+				return false ;
+			}
+		})
+	}).catch(function(err){
+		console.log(err) ;
+	})
+} //onload
+
+</script>
+<! --------------- Vertex Shader ---------------- ->
+<script id="vshader" type="x-shader/x-vertex">
+	attribute vec3 position;
+	attribute vec3 norm;
+	attribute vec2 uv ;
+	uniform mat4 mvpMatrix;
+	varying vec3 tnorm ;
+	varying vec2 tuv ;
+
+	void main() {
+		tnorm     = norm ;
+		tuv = vec2(uv.x,1.0-uv.y) ;
+		gl_Position = mvpMatrix * vec4(position, 1.0) ;
+	}
+</script>
+
+<! --------------- Fragment Shader ---------------- ->
+<script id="fshader" type="x-shader/x-fragment">
+	precision highp float;
+	uniform mat4 invMatrix;
+	uniform vec3 lightVec ;
+	uniform vec4 color ;
+	uniform int mode ;
+	uniform sampler2D tex ;
+
+	varying vec3 tnorm ;
+	varying vec2 tuv ;
+	void main() {
+		float light =clamp(dot(tnorm, normalize(invMatrix * vec4(lightVec,0.0)).xyz),0.0,1.0)*0.8+0.2;
+		vec3 col = color.xyz ;
+		if(mode==2) {
+			float dx = mod(tuv.x*10.0,1.0) ;
+			float dy = mod(tuv.y*10.0,1.0) ;
+			float t = (dx<0.5)^^(dy<0.5)?1.0:0.0 ;
+			col = vec3(col.x*t,col.y*t,col.z*t) ;
+		}
+		if(mode==3) {
+			col = texture2D(tex, tuv).xyz ;
+		}
+   		gl_FragColor = (mode!=1) ? vec4(light*col.x, light*col.y, light*col.z, 1.0):vec4(color.x,color.y,color.z,1.0);
+	}
+</script>
+<style>
+body {
+	margin:0 ;
+	background-color:#888 ;
+}
+canvas {
+	width:100vw ;
+	height:100vw ;
+
+}
+</style>
+</head>
+<body>
+<canvas id="screen1" ></canvas>
