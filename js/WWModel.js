@@ -74,7 +74,7 @@ WWModel.prototype.loadObj = function(path,scale) {
 		})
 	}) ;
 }
-WWModel.prototype.objNorm  = function() {
+WWModel.prototype.objModel  = function(addvec) {
 	var v = this.obj_v ;
 	var s = this.obj_i ;
 	var n = this.obj_n ;
@@ -147,10 +147,12 @@ WWModel.prototype.objNorm  = function() {
 		if(!n) {
 			this.obj_n.push([nx/vn,ny/vn,nz/vn]); 
 		}
-		
 		if(t) {
 			vbuf.push(t[i][0]) ;
 			vbuf.push(t[i][1]) ;
+		}
+		if(addvec) {
+			
 		}
 	}
 //	console.log(vbuf) ;
@@ -175,8 +177,26 @@ WWModel.prototype.normLines = function() {
 		nv.push(v[i][1]+n[i][1]*vm) ;
 		nv.push(v[i][2]+n[i][2]*vm) ;
 	}
-	return  {mode:"lines",vtx_at:["position"],vtx:nv,fs_uni:{
-		color:[0.5,0.5,1.0,0.5],mode:1}} ;
+	return  {mode:"lines",vtx_at:["position"],vtx:nv} ;
+}
+WWModel.prototype.mergeModels = function(models) {
+	var m = this ;
+	var ofs = 0 ;
+	for(var i=0;i<models.length;i++) {
+		m.obj_v = m.obj_v.concat(models[i].obj_v) 
+		m.obj_n = m.obj_n.concat(models[i].obj_n) 
+		m.obj_t = m.obj_t.concat(models[i].obj_t)
+		for(var j=0;j<models[i].obj_i.length;j++) {
+			var p = models[i].obj_i[j] ;
+			var pp = [] ;
+			for( n=0;n<p.length;n++) {
+				pp.push( p[n]+ofs ) ;
+			}
+			m.obj_i.push(pp) ;
+		}
+		ofs += models[i].obj_v.length ;
+	}
+	return m ;
 }
 WWModel.prototype.primitive  = function(type,p) {
 	if(!p) p = {} ;
@@ -213,6 +233,60 @@ WWModel.prototype.primitive  = function(type,p) {
 			}
 		}
 		break;
+	case "cylinder":
+		for(var i = 0 ; i < div ; ++i) {
+			var v = i / (0.0+div);
+			var y = Math.cos(PHI * v)*wy, x = Math.sin(PHI * v)*wx;
+			p.push([x,y,wz])
+			n.push([x,y,0])
+			t.push([v,1])
+			p.push([x,y,-wz])
+			n.push([x,y,0])
+			t.push([v,0])			
+		}
+		for(var j =0; j < div-1 ;j++) {
+			s.push([j*2,j*2+2,j*2+3,j*2+1]) ;
+		}
+		s.push([j*2,0,1,j*2+1])
+		break; 
+	case "cone":
+		for(var i = 0 ; i < div ; ++i) {
+			var v = i / (0.0+div);
+			var y = Math.cos(PHI * v)*wy, x = Math.sin(PHI * v)*wx;
+			p.push([x,y,0])
+			n.push([x,y,0])
+			t.push([v,1])	
+		}
+		p.push([0,0,wz])
+		n.push([0,0,1])
+		t.push([0,0])
+		for(var j =0; j < div-1 ;j++) {
+			s.push([j,j+1,div]) ;
+		}
+		s.push([j,0,div])
+		break; 
+	case "disc":
+		for(var i = 0 ; i < div ; ++i) {
+			var v = i / (0.0+div);
+			var y = Math.cos(PHI * v)*wy, x = Math.sin(PHI * v)*wx;
+			p.push([x,y,0])
+			n.push([0,0,1])
+			t.push([v,1])	
+		}
+		p.push([0,0,0])
+		n.push([0,0,1])
+		t.push([0,0])
+		for(var j =0; j < div-1 ;j++) {
+			s.push([j,j+1,div]) ;
+		}
+		s.push([j,0,div])
+		break; 
+	case "plane":
+		p = [[wx,0,wz],[wx,0,-wz],[-wx,0,-wz],[-wx,0,wz]]
+		n = [[0,0,1],[0,0,1],[0,0,1],[0,0,1]]
+		t = [[1,1],[1,0],[0,0],[0,1]]
+		s = [[0,1,2],[2,3,0]]
+		break ;
 	case "box":
 		p = [
 			[wx,wy,wz],[wx,-wy,wz],[-wx,-wy,wz],[-wx,wy,wz],
@@ -252,8 +326,9 @@ WWModel.prototype.primitive  = function(type,p) {
 	this.obj_n = n
 	this.obj_t = t
 	this.obj_i = s
-	console.log(p)
-	console.log(n)
-	console.log(t)
-	console.log(s)
+//	console.log(p)
+//	console.log(n)
+//	console.log(t)
+//	console.log(s)
+	return this ;
 }
