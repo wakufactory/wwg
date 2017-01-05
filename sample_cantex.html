@@ -16,8 +16,9 @@ onload = function() {
 	var texcanvas = document.getElementById('texcanvas') ;
 	// draw on canvas 
 	var ctx = texcanvas.getContext("2d") ;
+	  ctx.lineWidth = 2 ;
 	  ctx.beginPath();
-	  ctx.moveTo(10,10) ;
+	  ctx.moveTo(10,100) ;
 	  ctx.lineTo(500,500) ;
 	  ctx.lineTo(10,500);
 	  ctx.stroke() ;
@@ -32,11 +33,11 @@ onload = function() {
 			mvpMatrix:[0.5,0,0,0, 0,0.5,0,0, 0,0,1,0, 0,0,0,1],
 		},
 		texture:[
-			{canvas:texcanvas}
+			{canvas:texcanvas,opt:{flevel:2,anisotropy:4}}
 		],
 		model:[
 			{ //model1
-				mode:"tri_strip",
+				geo:{mode:"tri_strip",
 				vtx_at:["position","uv"],
 				vtx:[
 					1,1,0,//pos
@@ -48,7 +49,7 @@ onload = function() {
 					-1,-1,0,
 					0,0
 				],
-				idx:[0,1,2,3],
+				idx:[0,1,2,3]},
 				fs_uni:{
 					tex1:0
 				},
@@ -66,21 +67,20 @@ onload = function() {
 	})
 
 	function drawloop() {
-
 		var st = new Date().getTime() ;
 		var lt = st ;
 		(function loop(){
 			window.requestAnimationFrame(loop) ;
 			var ct = new Date().getTime() ;
 			var tint = (ct - st) ;
-			if((ct - lt)<30) return ;
+			if((ct - lt)<60) return ;
 	
 			r.draw({vs_uni:{mvpMatrix:new CanvasMatrix4().
 				rotate(tint/20-90,0,1,0).
 				lookat(0,0,5, 0,0,0, 0,1,0).
 				perspective(40,1.0, 0.1, 1000).getAsWebGLFloatArray()}}
 			) ;
-//			$I('fps').innerHTML = Math.floor(1000/(ct - lt)+0.5) ;
+//			console.log(Math.floor(1000/(ct - lt)+0.5)) ;
 			lt = ct ;
 		})();	
 	}

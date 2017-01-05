@@ -56,9 +56,9 @@ onload = function() {
 	
 	m.loadObj(of,0.03).then(function(data) {
 
-		var obj =  data.objNorm() ;
-		render.model.push( obj );			
-		render.model.push( data.normLines() );
+		var obj =  data.objModel() ;
+		render.model.push( {geo:obj} );			
+		render.model.push( {geo:data.normLines(),fs_uni:{ color:[0.5,0.5,1.0,0.5],mode:1}} );
 
 		//create render unit
 		var r = wwg.createRender() ;

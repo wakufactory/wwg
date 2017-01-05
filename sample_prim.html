@@ -3,97 +3,131 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width" /> 
-<title>WWG (objload)</title>
+<title>WWG (primitive)</title>
 <script src="js/WWG.js"></script>
 <script src="js/CanvasMatrix.js"></script>
 <script src="js/WWModel.js"></script>
 <script src="js/Pointer.js"></script>
 <script>
+var pixRatio = window.devicePixelRatio ;
 onload = function() {
-	var camMatrix = new CanvasMatrix4().
-			lookat(0,0,5,0,0,0,0,1,0).
-			perspective(40,1.0, 0.1, 100).getAsWebGLFloatArray();
+	// canvas initialize
+	var can = document.getElementById('screen1') ;
+	can.width= can.offsetWidth*pixRatio ;
+	can.height = can.offsetHeight*pixRatio ;
+	console.log("canvas:"+can.width+" x "+can.height);
 
+	// wwg initialize
+	var wwg = new WWG() ;
+	if(!wwg.init(can)) {
+		alert("not supported") ;
+		return ;
+	}
+	// scene data
 	var render = {
-		env:{clear_color:[0.4,0.4,0.4,1.0],cull:false},
+		env:{clear_color:[0.6,0.8,1.0,1.0],cull:false},
 		vshader:{
 			text: document.getElementById('vshader').innerText
 		},
 		fshader:{
 			text: document.getElementById('fshader').innerText
 		},
-		vs_uni:{mvpMatrix:camMatrix},
+		vs_uni:{
+			lightVec:[1,0.8,0.9],
+		},
 		fs_uni:{
-			lightVec:[1,1,1],
 			color:[1.0,0.2,0.2,1.0],
 			tex:0,
-			invMatrix:new CanvasMatrix4().getAsWebGLFloatArray(),
 			mode:3
 		},
 		texture:[
-			{src:"res/tex1.png"}
+			{src:"res/tex1.png",opt:{flevel:2,anisotropy:4}}
 		],
 		model:[
-		{mode:"lines",
+		{name:"axis",
+			geo:{mode:"lines",
 			vtx_at:["position"],
-			vtx:[0,0,0, 100,0,0, 0,0,0, 0,100,0, 0,0,0, 0,0,100],
-			fs_uni:{color:[1.0,1.0,1.0,1.0],mode:1}}
+			vtx:[0,0,0, 100,0,0, 0,0,0, 0,100,0, 0,0,0, 0,0,100]},
+			fs_uni:{color:[1.0,1.0,1.0,1.0],mode:1}},
+		{name:"base",
+			geo:new WWModel().primitive("plane",{wx:50,wz:50}).objModel(),
+			bm:new CanvasMatrix4().translate(0,-0.2,0),
+			fs_uni:{color:[0.6,0.9,0.6,1.0],mode:2}},
+		{name:"sph",
+			geo:new WWModel().primitive("sphere",{div:20}).objModel(),
+			bm:new CanvasMatrix4().scale(0.75).translate(1,1,0),
+			fs_uni:{mode:2}},
+		{name:"box",
+			geo:new WWModel().primitive("box",{wz:0.5}).objModel(),
+			bm:new CanvasMatrix4().rotate(45,0,0,1)},
+		{name:"jiku",
+			geo:new WWModel().primitive("cylinder",{div:20,wx:0.2,wy:0.2,wz:2}).objModel(),
+			bm:new CanvasMatrix4(),
+			fs_uni:{color:[0.3,0.3,1.0,1.0],mode:0}},
+		{name:"futa",
+			geo:new WWModel().primitive("disc",{div:20,wx:0.2,wy:0.2,wz:0.2}).objModel(),
+			bm:new CanvasMatrix4().translate(0,0,2),
+			fs_uni:{color:[0.3,0.3,1.0,1.0],mode:0}}
 		]
 	}
 
+	// scene update
 	function update(render,p) {
 		var RAD = Math.PI/180 ;
-		var modelMatrix = new CanvasMatrix4().
-			translate(0,p.ofsY,0).
-			rotate(p.rotY,0,1,0).
-			rotate(p.rotX,1,0,0)
-//		console.log(modelMatrix) ;
-//console.log(p.camRX+"/"+p.camRY)
-		var camd= 10 ;
-		var camX = Math.sin(-p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
+
+		// calc camera matrix
+		var camd= 5 ;
+		var camX = -Math.sin(p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
 		var camY = Math.sin(p.camRX*RAD)*camd ; 
-		var camZ = Math.cos(-p.camRY*RAD)*camd*Math.cos(p.camRX*RAD) 
+		var camZ = Math.cos(p.camRY*RAD)*camd*Math.cos(p.camRX*RAD) 
+		var camM = new CanvasMatrix4().lookat(camX,camY,camZ,0,0,0,0,1,0).
+			perspective(60,1.0, 0.1, 100)
+		
+		// calc each model moving matrix 
+		render.getModelData("sph").mm = new CanvasMatrix4().rotate(p.rotY*0.9,0,1,0)
+		render.getModelData("box").mm = new CanvasMatrix4().rotate(p.rotY,0,0,1)
 			
-		var camM = new CanvasMatrix4(modelMatrix).lookat(camX,camY,camZ,0,0,0,0,1,0).
-			perspective(40,1.0, 0.1, 100)
-		var uni = {vs_uni:{
-			mvpMatrix:camM.getAsWebGLFloatArray()},
-			fs_uni:{invMatrix:modelMatrix.invert().getAsWebGLFloatArray()},
+		// calc each mvp matrix and invert matrix
+		var mod = [] ;		
+		for(var i=0;i<render.modelCount;i++) {
+			var d = render.getModelData(i) ;
+			var m = new CanvasMatrix4(d.bm) ;
+			if(d.mm) m.multRight(d.mm) ;
+			mod[i] = {
+				vs_uni:{mvpMatrix:new CanvasMatrix4(m).multRight(camM).getAsWebGLFloatArray(),
+					invMatrix:new CanvasMatrix4(m).invert().getAsWebGLFloatArray()}
+			}
 		} 
-		render.draw({model:[uni,uni,uni,uni,uni,]},false) ;
+		// draw call 
+		render.draw({model:mod},false) ;
 	}
-	var can = document.getElementById('screen1') ;
-	can.width= can.offsetWidth ;
-	can.height = can.offsetHeight ;
 
-	var wwg = new WWG() ;
-	if(!wwg.init(can)) {
-		alert("not supported") ;
-		return ;
-	}
-	//generate primitive objects
-	var m1= new WWModel() ;
-	m1.primitive("sphere",{div:20}) ;
-	var o1 = m1.objNorm() ;
-	o1.fs_uni = {mode:2} ;
-	render.model.push( o1 );			
-	render.model.push( m1.normLines() );
-	var m2= new WWModel() ;
-	m2.primitive("box",{wz:0.5}) ;
-	render.model.push( m2.objNorm() );			
-	render.model.push( m2.normLines() );
-
-	var p = {rotX:0,rotY:0,ofsY:0}
+	var p = {camRX:30,camRY:-30,rotX:0,rotY:0,ofsY:0}
 	//create render unit
 	var r = wwg.createRender() ;
 	r.setRender(render).then(function() {
 		console.log(r) ;
-		var rotX = 0 ,rotY = 0 ;
+		var rotX = p.camRX ,rotY = p.camRY ;
 		//draw first time
 		update(r,p);
 		
+		//draw loop
+		var st = new Date().getTime() ;
+		var lt = st ;
+		(function loop(){
+			window.requestAnimationFrame(loop) ;
+			var ct = new Date().getTime() ;
+			var tint = (ct - st) ;
+			if((ct - lt)<1000/60) return ;
+			p.rotY = (ct-st)/20 ;
+			update(r,p) ;
+//			console.log(Math.floor(1000/(ct - lt)+0.5)) ;
+			lt = ct ;
+		})();		
+			
 		//mouse intraction
 		var mag = 300/can.width;
+		var keymag= 2 ;
 		var m = new Pointer(can,{
 			down:function(d) {
 				return false ;
@@ -103,8 +137,6 @@ onload = function() {
 				p.camRY = rotY+d.dx*mag ;
 				if(p.camRX>90)p.camRX=90 ;
 				if(p.camRX<-90)p.camRX=-90 ;
-
-				update(r,p) ;
 				return false ;
 			},
 			up:function(d) {
@@ -112,6 +144,16 @@ onload = function() {
 				rotY += d.dx*mag; 	
 				return false ;
 			}
+		})
+		document.body.addEventListener("keydown", function(ev){
+			switch(ev.keyCode) {
+			case 37:rotY -= keymag ; break ;
+			case 38:rotX -= keymag ; if(rotX<-90) rotX = -90 ; break ;
+			case 39:rotY += keymag ; break ;
+			case 40:rotX += keymag ; if(rotX>90) rotX = 90 ; break ;
+			}
+			p.camRX = rotX ;
+			p.camRY = rotY ;
 		})
 	}).catch(function(err){
 		console.log(err) ;
@@ -125,34 +167,34 @@ onload = function() {
 	attribute vec3 norm;
 	attribute vec2 uv ;
 	uniform mat4 mvpMatrix;
-	varying vec3 tnorm ;
+	uniform mat4 invMatrix;
+	uniform vec3 lightVec ;
 	varying vec2 tuv ;
+	varying float light ;
 
 	void main() {
-		tnorm     = norm ;
 		tuv = vec2(uv.x,1.0-uv.y) ;
 		gl_Position = mvpMatrix * vec4(position, 1.0) ;
+		light =clamp(dot(norm, normalize(invMatrix * vec4(lightVec,0.0)).xyz),0.0,1.0)*0.8+0.2;
 	}
 </script>
 
 <! --------------- Fragment Shader ---------------- ->
 <script id="fshader" type="x-shader/x-fragment">
 	precision highp float;
-	uniform mat4 invMatrix;
-	uniform vec3 lightVec ;
 	uniform vec4 color ;
 	uniform int mode ;
 	uniform sampler2D tex ;
 
-	varying vec3 tnorm ;
 	varying vec2 tuv ;
+	varying float light ;
+	
 	void main() {
-		float light =clamp(dot(tnorm, normalize(invMatrix * vec4(lightVec,0.0)).xyz),0.0,1.0)*0.8+0.2;
 		vec3 col = color.xyz ;
 		if(mode==2) {
 			float dx = mod(tuv.x*10.0,1.0) ;
 			float dy = mod(tuv.y*10.0,1.0) ;
-			float t = (dx<0.5)^^(dy<0.5)?1.0:0.0 ;
+			float t = (dx<0.5) ^^ (dy<0.5)?1.0:0.0 ;
 			col = vec3(col.x*t,col.y*t,col.z*t) ;
 		}
 		if(mode==3) {
