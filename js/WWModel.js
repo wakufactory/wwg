@@ -283,7 +283,7 @@ WWModel.prototype.primitive  = function(type,p) {
 		break; 
 	case "plane":
 		p = [[wx,0,wz],[wx,0,-wz],[-wx,0,-wz],[-wx,0,wz]]
-		n = [[0,0,1],[0,0,1],[0,0,1],[0,0,1]]
+		n = [[0,1,0],[0,1,0],[0,1,0],[0,1,0]]
 		t = [[1,1],[1,0],[0,0],[0,1]]
 		s = [[0,1,2],[2,3,0]]
 		break ;
