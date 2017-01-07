@@ -26,7 +26,7 @@ onload = function() {
 	}
 	// scene data
 	var scene = {
-		env:{clear_color:[0.6,0.8,1.0,1.0],cull:false},
+		env:{clear_color:[0.6,0.8,1.0,1.0],cull:true},
 		vshader:{
 			text: document.getElementById('vshader').innerText
 		},
@@ -62,12 +62,12 @@ onload = function() {
 			geo:new WWModel().primitive("box",{wz:0.5}).objModel(),
 			bm:new CanvasMatrix4().rotate(45,0,0,1)},
 		{name:"jiku",
-			geo:new WWModel().primitive("cylinder",{div:20,wx:0.2,wy:0.2,wz:2}).objModel(),
-			bm:new CanvasMatrix4(),
+			geo:new WWModel().primitive("cylinder",{div:20,wx:0.2,wy:2,wz:0.2}).objModel(),
+			bm:new CanvasMatrix4().rotate(90,1,0,0),
 			fs_uni:{color:[0.3,0.3,1.0,1.0],mode:0}},
 		{name:"futa",
 			geo:new WWModel().primitive("disc",{div:20,wx:0.2,wy:0.2,wz:0.2}).objModel(),
-			bm:new CanvasMatrix4().translate(0,0,2),
+			bm:new CanvasMatrix4().rotate(90,1,0,0).translate(0,0,2),
 			fs_uni:{color:[0.3,0.3,1.0,1.0],mode:0}}
 		]
 	}

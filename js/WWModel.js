@@ -1,3 +1,8 @@
+//Model library for WWG
+// Version 0.9 
+// 2016-2017 wakufactory.jp 
+// license: MIT 
+
 WWModel = function(){
 	
 }
@@ -198,12 +203,13 @@ WWModel.prototype.mergeModels = function(models) {
 	}
 	return m ;
 }
-WWModel.prototype.primitive  = function(type,p) {
-	if(!p) p = {} ;
-	var wx = (p.wx)?p.wx:1.0 ;
-	var wy = (p.wy)?p.wy:1.0 ;
-	var wz = (p.wz)?p.wz:1.0 ;
-	var div = (p.div)?p.div:10 ;
+WWModel.prototype.primitive  = function(type,param) {
+	if(!param) param = {} ;
+	var wx = (param.wx)?param.wx:1.0 ;
+	var wy = (param.wy)?param.wy:1.0 ;
+	var wz = (param.wz)?param.wz:1.0 ;
+	var div = (param.div)?param.div:10 ;
+	var ninv = (param.ninv)?-1:1 ;
 	var p = [] ;
 	var n = [] ;
 	var t = [] ;
@@ -219,7 +225,7 @@ WWModel.prototype.primitive  = function(type,p) {
 				var x = (Math.cos(PHI * u) * r)
 				var z = (Math.sin(PHI * u) * r)
 				p.push([x*wx,y*wy,z*wz])
-				n.push([x,y,z])
+				n.push([x*ninv,y*ninv,z*ninv])
 				t.push([1-u,1-v])
 			}
 		}
@@ -227,54 +233,62 @@ WWModel.prototype.primitive  = function(type,p) {
 		for(var j = 0 ; j < div ; ++j) {
 			var base = j * d2;
 			for(var i = 0 ; i < div*2 ; ++i) {
-				s.push(
-				[base + i,	  base + i + 1, base + i     + d2],
-				[base + i + d2, base + i + 1, base + i + 1 + d2]);
+				if(ninv>0) s.push(
+					[base + i,	  base + i + 1, base + i     + d2],
+					[base + i + d2, base + i + 1, base + i + 1 + d2]);
+				else s.push(
+					[base + i     + d2,	base + i + 1, base + i],
+					[base + i + 1 + d2, base + i + 1, base + i + d2 ]);
+
 			}
 		}
 		break;
 	case "cylinder":
 		for(var i = 0 ; i < div ; ++i) {
 			var v = i / (0.0+div);
-			var y = Math.cos(PHI * v)*wy, x = Math.sin(PHI * v)*wx;
-			p.push([x,y,wz])
-			n.push([x,y,0])
+			var z = Math.cos(PHI * v)*wz, x = Math.sin(PHI * v)*wx;
+			p.push([x,wy,z])
+			n.push([x*ninv,0,z*ninv])
 			t.push([v,1])
-			p.push([x,y,-wz])
-			n.push([x,y,0])
+			p.push([x,-wy,z])
+			n.push([x*ninv,0,z*ninv,0])
 			t.push([v,0])			
 		}
 		for(var j =0; j < div-1 ;j++) {
-			s.push([j*2,j*2+2,j*2+3,j*2+1]) ;
+			if(ninv<0)s.push([j*2,j*2+2,j*2+3,j*2+1]) ;
+			else s.push([j*2,j*2+1,j*2+3,j*2+2]) ;
 		}
-		s.push([j*2,0,1,j*2+1])
+		if(ninv<0) s.push([j*2,0,1,j*2+1])
+		else s.push([j*2,j*2+1,1,0])
 		break; 
 	case "cone":
 		for(var i = 0 ; i < div ; ++i) {
 			var v = i / (0.0+div);
-			var y = Math.cos(PHI * v)*wy, x = Math.sin(PHI * v)*wx;
-			p.push([x,y,0])
-			n.push([x,y,0])
-			t.push([v,1])	
+			var z = Math.cos(PHI * v)*wz, x = Math.sin(PHI * v)*wx;
+			p.push([0,wy,0])
+			n.push([x*ninv,0,z*ninv])
+			t.push([v,1])
+			p.push([x,-wy,z])
+			n.push([x*ninv,0,z*ninv,0])
+			t.push([v,0])			
 		}
-		p.push([0,0,wz])
-		n.push([0,0,1])
-		t.push([0,0])
 		for(var j =0; j < div-1 ;j++) {
-			s.push([j,j+1,div]) ;
+			if(ninv<0)s.push([j*2,j*2+2,j*2+3,j*2+1]) ;
+			else s.push([j*2,j*2+1,j*2+3,j*2+2]) ;
 		}
-		s.push([j,0,div])
+		if(ninv<0) s.push([j*2,0,1,j*2+1])
+		else s.push([j*2,j*2+1,1,0])
 		break; 
 	case "disc":
 		for(var i = 0 ; i < div ; ++i) {
 			var v = i / (0.0+div);
-			var y = Math.cos(PHI * v)*wy, x = Math.sin(PHI * v)*wx;
-			p.push([x,y,0])
-			n.push([0,0,1])
+			var z = Math.cos(PHI * v)*wz, x = Math.sin(PHI * v)*wx;
+			p.push([x,0,z])
+			n.push([0,1,0])
 			t.push([v,1])	
 		}
 		p.push([0,0,0])
-		n.push([0,0,1])
+		n.push([0,1,0])
 		t.push([0,0])
 		for(var j =0; j < div-1 ;j++) {
 			s.push([j,j+1,div]) ;
@@ -297,12 +311,12 @@ WWModel.prototype.primitive  = function(type,p) {
 			[wx,-wy,wz],[wx,-wy,-wz],[-wx,-wy,-wz],[-wx,-wy,wz],
 		]
 		n = [
-			[0,0,1],[0,0,1],[0,0,1],[0,0,1],
-			[0,0,-1],[0,0,-1],[0,0,-1],[0,0,-1],
-			[1,0,0],[1,0,0],[1,0,0],[1,0,0],
-			[-1,0,0],[-1,0,0],[-1,0,0],[-1,0,0],
-			[0,1,0],[0,1,0],[0,1,0],[0,1,0],
-			[0,-1,0],[0,-1,0],[0,-1,0],[0,-1,0]
+			[0,0,ninv],[0,0,ninv],[0,0,ninv],[0,0,ninv],
+			[0,0,-ninv],[0,0,-ninv],[0,0,-ninv],[0,0,-ninv],
+			[ninv,0,0],[ninv,0,0],[ninv,0,0],[ninv,0,0],
+			[-ninv,0,0],[-ninv,0,0],[-ninv,0,0],[-ninv,0,0],
+			[0,ninv,0],[0,ninv,0],[0,ninv,0],[0,ninv,0],
+			[0,-ninv,0],[0,-ninv,0],[0,-ninv,0],[0,-ninv,0]
 		]
 		t = [
 			[1,1],[1,0],[0,0],[0,1],
@@ -312,15 +326,24 @@ WWModel.prototype.primitive  = function(type,p) {
 			[1,0],[1,1],[0,1],[0,0],
 			[1,1],[1,0],[0,0],[0,1]
 		]
-		s = [
+		s = (ninv>0)?[
 			[3,1,0],[2,1,3],
 			[4,5,7],[7,5,6],
 			[8,9,11],[11,9,10],
 			[15,13,12],[14,13,15],	
 			[16,17,19],[19,17,18],
 			[23,21,20],[22,21,23],		
+		]:[
+			[0,1,3],[3,1,2],
+			[7,5,4],[6,5,7],
+			[11,9,8],[10,9,11],
+			[12,13,15],[15,13,14],	
+			[19,17,16],[18,17,19],
+			[20,21,23],[23,21,22],		
 		]
 		break ;
+	case "mesh":
+		
 	}
 	this.obj_v = p 
 	this.obj_n = n

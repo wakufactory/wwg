@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width" /> 
-<title>WWG (instance)</title>
+<title>WWG (instancing)</title>
 <script src="js/WWG.js"></script>
 <script src="js/CanvasMatrix.js"></script>
 <script src="js/WWModel.js"></script>
@@ -37,24 +37,23 @@ onload = function() {
 			lightVec:[1,0.8,0.9],
 		},
 		fs_uni:{
-			bcolor:[1.0,0.2,0.2,1.0],
+			bcolor:[0.2,0.2,0.4,1.0],
 			mode:0
 		},
 		model:[
-		{name:"axis",
-			geo:{mode:"lines",
-			vtx_at:["position"],
-			vtx:[0,0,0, 100,0,0, 0,0,0, 0,100,0, 0,0,0, 0,0,100]},
-			fs_uni:{bcolor:[1.0,1.0,1.0,1.0],mode:1}},
-		{name:"box",
-			geo:new WWModel().primitive("box",{wx:0.3,wy:0.3,wz:0.3}).objModel(),
-			inst:{inst_at:["ipos","icolor"],
-				inst:(function(){
+
+		{name:"tama",
+			geo:new WWModel().primitive("sphere",{div:10,wx:0.4,wy:0.4,wz:0.4}).objModel(),
+			//instancing data
+			inst:{attr:["ipos","icolor"],
+				data:(function(){
 						var r = [] ;
 						for(x=0;x<16;x++) {
 							for(y=0;y<16;y++) {
 								for(z=0;z<16;z++) {
+									//ipos
 									r.push(x-8+Math.random()/2); r.push(y-8+Math.random()/2); r.push(z-8+Math.random()/2) ;
+									//icolor
 									r.push(x/16) ;r.push(y/16) ;r.push(z/16); r.push(1.0) ;
 								}
 							}
@@ -63,6 +62,14 @@ onload = function() {
 					})(),
 				count:16*16*16}
 			},
+		{name:"sora",
+			geo:new WWModel().primitive("sphere",{div:20,wx:200,wy:200,wz:200,ninv:1}).objModel(),
+			fs_uni:{mode:2}},
+		{name:"axis",
+			geo:{mode:"lines",
+			vtx_at:["position"],
+			vtx:[0,0,0, 200,0,0, 0,0,0, 0,200,0, 0,0,0, 0,0,200]},
+			fs_uni:{bcolor:[1.0,1.0,1.0,1.0],mode:1}},
 		]
 	}
 
@@ -75,13 +82,14 @@ onload = function() {
 
 		// bird camera mode 
 		var mx = my = mz = 0 ;
-		var camd= 30 ;
+		var camd=  30 ;
 		var camX = -Math.sin(p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
 		var camY = Math.sin(p.camRX*RAD)*camd ; 
 		var camZ = Math.cos(p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
 		var cx = 0 ,cy = 0, cz = 0 ;
 		var upx = 0,upy = 1 ,upz = 0 ;
 		
+		//view light 
 		scene.vs_uni.lightVec = [camX,camY,camZ] 
 
 		// X vector = Y cross Z
@@ -90,8 +98,8 @@ onload = function() {
 		var xz =  upx * (camY-cy) - upy * (camX-cx);
 		var mag = Math.sqrt(xx * xx + xy * xy + xz * xz);
 		xx /= mag ; xy /=mag ; xz /= mag ;
-		var camM = new CanvasMatrix4().lookat(camX+xx*dx+mx,camY+xy*dx+my,camZ+xz*dx+mz,cx+mx,cy+my,cz+mz,upx,upy,upz).
-			perspective(60,aspect, 0.1, 200)
+		var camM = new CanvasMatrix4().lookat(camX+xx*dx+mx,camY+xy*dx+my,camZ+xz*dx+mz, cx+mx,cy+my,cz+mz, upx,upy,upz).
+			perspective(isStereo?70:60,aspect, 0.1, 300)
 			
 		// calc each mvp matrix and invert matrix
 		var mod = [] ;		
@@ -211,6 +219,7 @@ onload = function() {
 
 	uniform int mode ;
 	uniform vec4 bcolor ;
+	uniform sampler2D tex ;
 
 	varying vec2 tuv ;
 	varying float light ;
@@ -223,6 +232,9 @@ onload = function() {
 			float dy = mod(tuv.y*10.0,1.0) ;
 			float t = (dx<0.5) ^^ (dy<0.5)?1.0:0.0 ;
 			col = vec3(bcolor.x*t,bcolor.y*t,bcolor.z*t) ;
+		}
+		if(mode==3) {  //texture 
+//			col = texture2D(tex, tuv).xyz ;
 		}
    		gl_FragColor = (mode!=1) ? vec4(light*col.x, light*col.y, light*col.z, 1.0):vec4(bcolor.x,bcolor.y,bcolor.z,1.0);
 	}

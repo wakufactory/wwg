@@ -1,6 +1,6 @@
 //WWG Simple WebGL wrapper library
-// Version 1.0 
-// 2016 wakufactory.jp 
+// Version 0.9 
+// 2016-2017 wakufactory.jp 
 // license: MIT 
 
 function WWG() {
@@ -397,19 +397,20 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, ibuf) ;
 		var tl = 0 ;
 		var ats = [] ;
-		for(var i=0;i<inst.inst_at.length;i++) {
-			ats.push( this.vs_att[inst.inst_at[i]] ) ;
-			tl += this.wwg.vsize[this.vs_att[inst.inst_at[i]].type] ;
+		for(var i=0;i<inst.attr.length;i++) {
+			ats.push( this.vs_att[inst.attr[i]] ) ;
+			tl += this.wwg.vsize[this.vs_att[inst.attr[i]].type] ;
 		}
 		tl = tl*4 ;
 		var ofs = 0 ;
 		for(var i=0;i<ats.length;i++) {
+			var divisor = (inst.divisor)?inst.divisor[i]:1 ;
 			var s = this.wwg.vsize[ats[i].type] ;
 			var pos = this.vs_att[ats[i].name].pos
 			this.gl.enableVertexAttribArray(pos);
 			this.gl.vertexAttribPointer(pos, s, this.gl.FLOAT, false, tl, ofs);
 			ofs += s*4 ;
-			this.wwg.ext_inst.vertexAttribDivisorANGLE(pos, 1)	
+			this.wwg.ext_inst.vertexAttribDivisorANGLE(pos, divisor)	
 		} 
 		ret.inst = ibuf 
 	}
@@ -429,7 +430,7 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 	if(flag && inst) {
 		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, ibuf) ;
 		this.gl.bufferData(this.gl.ARRAY_BUFFER, 
-			this.f32Array(inst.inst),this.gl.STATIC_DRAW ) ;
+			this.f32Array(inst.data),this.gl.STATIC_DRAW ) ;
 	}
 	this.wwg.ext_vao.bindVertexArrayOES(null);
 		
