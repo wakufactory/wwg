@@ -359,6 +359,7 @@ WWG.prototype.Render.prototype.i16Array = function(ar) {
 }
 WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 	var geo = obj.geo ;
+	var inst = obj.inst ;
 	ret = {} ;
 	vao = this.wwg.ext_vao.createVertexArrayOES() ;
 	this.wwg.ext_vao.bindVertexArrayOES(vao);
@@ -391,14 +392,45 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 		this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ibo) ;
 		ret.ibo = ibo ;
 	}
+	if(inst) {
+		var ibuf = this.gl.createBuffer() 
+		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, ibuf) ;
+		var tl = 0 ;
+		var ats = [] ;
+		for(var i=0;i<inst.inst_at.length;i++) {
+			ats.push( this.vs_att[inst.inst_at[i]] ) ;
+			tl += this.wwg.vsize[this.vs_att[inst.inst_at[i]].type] ;
+		}
+		tl = tl*4 ;
+		var ofs = 0 ;
+		for(var i=0;i<ats.length;i++) {
+			var s = this.wwg.vsize[ats[i].type] ;
+			var pos = this.vs_att[ats[i].name].pos
+			this.gl.enableVertexAttribArray(pos);
+			this.gl.vertexAttribPointer(pos, s, this.gl.FLOAT, false, tl, ofs);
+			ofs += s*4 ;
+			this.wwg.ext_inst.vertexAttribDivisorANGLE(pos, 1)	
+		} 
+		ret.inst = ibuf 
+	}
 	this.wwg.ext_vao.bindVertexArrayOES(null);
 
 	this.wwg.ext_vao.bindVertexArrayOES(vao);
-	if(flag) this.gl.bufferData(this.gl.ARRAY_BUFFER, 
-		this.f32Array(geo.vtx), this.gl.STATIC_DRAW) ;
-	if(flag && geo.idx) this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, 
-		this.i16Array(geo.idx),this.gl.STATIC_DRAW ) ;
-
+	if(flag) {
+		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo) ;
+		this.gl.bufferData(this.gl.ARRAY_BUFFER, 
+			this.f32Array(geo.vtx), this.gl.STATIC_DRAW) ;
+	}
+	if(flag && geo.idx) {
+		this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ibo) ;
+		this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, 
+			this.i16Array(geo.idx),this.gl.STATIC_DRAW ) ;
+	}
+	if(flag && inst) {
+		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, ibuf) ;
+		this.gl.bufferData(this.gl.ARRAY_BUFFER, 
+			this.f32Array(inst.inst),this.gl.STATIC_DRAW ) ;
+	}
 	this.wwg.ext_vao.bindVertexArrayOES(null);
 		
 	return ret ;
@@ -448,10 +480,13 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 				console.log("Error: illigal draw mode") ;
 				return false ;
 		}
-
-		if(geo.idx) gl.drawElements(gmode, geo.idx.length, this.gl.UNSIGNED_SHORT, ofs);
-		else gl.drawArrays(gmode, ofs,geo.vtx.length/3);
-
+		if(cmodel.inst) {
+			if(geo.idx) this.wwg.ext_inst.drawElementsInstancedANGLE(gmode, geo.idx.length, gl.UNSIGNED_SHORT, ofs, cmodel.inst.count);
+			else this.wwg.ext_inst.drawArrayInstancedANGLE(gmode, gl.UNSIGNED_SHORT, ofs, cmodel.inst.count);
+		} else {
+			if(geo.idx) gl.drawElements(gmode, geo.idx.length, gl.UNSIGNED_SHORT, ofs);
+			else gl.drawArrays(gmode, ofs,geo.vtx.length/3);
+		}
 		this.wwg.ext_vao.bindVertexArrayOES(null);
 		if(cmodel.postFunction) {
 			cmodel.postFunction(gl,cmodel) ;

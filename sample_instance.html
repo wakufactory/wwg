@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width" /> 
-<title>WWG (primitive)</title>
+<title>WWG (instance)</title>
 <script src="js/WWG.js"></script>
 <script src="js/CanvasMatrix.js"></script>
 <script src="js/WWModel.js"></script>
@@ -26,7 +26,7 @@ onload = function() {
 	}
 	// scene data
 	var scene = {
-		env:{clear_color:[0.6,0.8,1.0,1.0],cull:false},
+		env:{clear_color:[0.6,0.6,0.6,1.0],cull:true},
 		vshader:{
 			text: document.getElementById('vshader').innerText
 		},
@@ -37,67 +37,53 @@ onload = function() {
 			lightVec:[1,0.8,0.9],
 		},
 		fs_uni:{
-			color:[1.0,0.2,0.2,1.0],
-			tex:0,
-			mode:3
+			bcolor:[1.0,0.2,0.2,1.0],
+			mode:0
 		},
-		texture:[
-			{src:"res/tex1.png",opt:{flevel:2,anisotropy:4}}
-		],
 		model:[
 		{name:"axis",
 			geo:{mode:"lines",
 			vtx_at:["position"],
 			vtx:[0,0,0, 100,0,0, 0,0,0, 0,100,0, 0,0,0, 0,0,100]},
-			fs_uni:{color:[1.0,1.0,1.0,1.0],mode:1}},
-		{name:"base",
-			geo:new WWModel().primitive("plane",{wx:50,wz:50}).objModel(),
-			bm:new CanvasMatrix4().translate(0,-0.2,0),
-			fs_uni:{color:[0.6,0.9,0.6,1.0],mode:2}},
-		{name:"sph",
-			geo:new WWModel().primitive("sphere",{div:20}).objModel(),
-			bm:new CanvasMatrix4().scale(0.75).translate(1,1,0),
-			fs_uni:{mode:2}},
+			fs_uni:{bcolor:[1.0,1.0,1.0,1.0],mode:1}},
 		{name:"box",
-			geo:new WWModel().primitive("box",{wz:0.5}).objModel(),
-			bm:new CanvasMatrix4().rotate(45,0,0,1)},
-		{name:"jiku",
-			geo:new WWModel().primitive("cylinder",{div:20,wx:0.2,wy:0.2,wz:2}).objModel(),
-			bm:new CanvasMatrix4(),
-			fs_uni:{color:[0.3,0.3,1.0,1.0],mode:0}},
-		{name:"futa",
-			geo:new WWModel().primitive("disc",{div:20,wx:0.2,wy:0.2,wz:0.2}).objModel(),
-			bm:new CanvasMatrix4().translate(0,0,2),
-			fs_uni:{color:[0.3,0.3,1.0,1.0],mode:0}}
+			geo:new WWModel().primitive("box",{wx:0.3,wy:0.3,wz:0.3}).objModel(),
+			inst:{inst_at:["ipos","icolor"],
+				inst:(function(){
+						var r = [] ;
+						for(x=0;x<16;x++) {
+							for(y=0;y<16;y++) {
+								for(z=0;z<16;z++) {
+									r.push(x-8+Math.random()/2); r.push(y-8+Math.random()/2); r.push(z-8+Math.random()/2) ;
+									r.push(x/16) ;r.push(y/16) ;r.push(z/16); r.push(1.0) ;
+								}
+							}
+						}
+						return r ;
+					})(),
+				count:16*16*16}
+			},
 		]
 	}
 
 	// scene update
 	function calcMatrix(render,p,sf) {
 		var RAD = Math.PI/180 ;
-		var dx = sf * 0.1 ;	// stereo base
+		var dx = sf * 0.5 ;	// stereo base
 		var aspect = can.width/(can.height*((isStereo)?2:1)) ;
 		// calc camera matrix
 
 		// bird camera mode 
 		var mx = my = mz = 0 ;
-		var camd= 5 ;
+		var camd= 30 ;
 		var camX = -Math.sin(p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
 		var camY = Math.sin(p.camRX*RAD)*camd ; 
 		var camZ = Math.cos(p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
 		var cx = 0 ,cy = 0, cz = 0 ;
 		var upx = 0,upy = 1 ,upz = 0 ;
-/*
-		// self camera mode 
-		var mx = 2 ;
-		var mz = 2 ;
-		var my = 0.1
-		var cx = Math.sin(p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
-		var cy = -Math.sin(p.camRX*RAD)*camd ; 
-		var cz = -Math.cos(p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
-		var camX = 0 ,camY = 0, camZ = 0 ;
-		var upx = 0,upy = 1 ,upz = 0 ;		
-*/
+		
+		scene.vs_uni.lightVec = [camX,camY,camZ] 
+
 		// X vector = Y cross Z
 		var xx =  upy * (camZ-cz) - upz * (camY-cy);
 		var xy = -upx * (camZ-cz) + upz * (camX-cx);
@@ -105,11 +91,7 @@ onload = function() {
 		var mag = Math.sqrt(xx * xx + xy * xy + xz * xz);
 		xx /= mag ; xy /=mag ; xz /= mag ;
 		var camM = new CanvasMatrix4().lookat(camX+xx*dx+mx,camY+xy*dx+my,camZ+xz*dx+mz,cx+mx,cy+my,cz+mz,upx,upy,upz).
-			perspective(60,aspect, 0.1, 100)
-		
-		// calc each model moving matrix 
-		render.getModelData("sph").mm = new CanvasMatrix4().rotate(p.rotY*0.9,0,1,0)
-		render.getModelData("box").mm = new CanvasMatrix4().rotate(p.rotY,0,0,1)
+			perspective(60,aspect, 0.1, 200)
 			
 		// calc each mvp matrix and invert matrix
 		var mod = [] ;		
@@ -205,28 +187,34 @@ onload = function() {
 	attribute vec3 position;
 	attribute vec3 norm;
 	attribute vec2 uv ;
+	attribute vec3 ipos ;
+	attribute vec4 icolor ;
+	
 	uniform mat4 mvpMatrix;
 	uniform mat4 invMatrix;
 	uniform vec3 lightVec ;
 	varying vec2 tuv ;
 	varying float light ;
+	varying vec4 color ;
 
 	void main() {
+		color = icolor ;
 		tuv = vec2(uv.x,1.0-uv.y) ;
 		light =clamp(dot(norm, normalize(invMatrix * vec4(lightVec,0.0)).xyz),0.0,1.0)*0.8+0.2;
-		gl_Position = mvpMatrix * vec4(position, 1.0) ;
+		gl_Position = mvpMatrix * vec4(position+ipos, 1.0) ;
 	}
 </script>
 
 <! --------------- Fragment Shader ---------------- ->
 <script id="fshader" type="x-shader/x-fragment">
 	precision highp float;
-	uniform vec4 color ;
+
 	uniform int mode ;
-	uniform sampler2D tex ;
+	uniform vec4 bcolor ;
 
 	varying vec2 tuv ;
 	varying float light ;
+	varying vec4 color ;
 	
 	void main() {
 		vec3 col = color.xyz ;
@@ -234,12 +222,9 @@ onload = function() {
 			float dx = mod(tuv.x*10.0,1.0) ;
 			float dy = mod(tuv.y*10.0,1.0) ;
 			float t = (dx<0.5) ^^ (dy<0.5)?1.0:0.0 ;
-			col = vec3(col.x*t,col.y*t,col.z*t) ;
+			col = vec3(bcolor.x*t,bcolor.y*t,bcolor.z*t) ;
 		}
-		if(mode==3) {  //texture 
-			col = texture2D(tex, tuv).xyz ;
-		}
-   		gl_FragColor = (mode!=1) ? vec4(light*col.x, light*col.y, light*col.z, 1.0):vec4(color.x,color.y,color.z,1.0);
+   		gl_FragColor = (mode!=1) ? vec4(light*col.x, light*col.y, light*col.z, 1.0):vec4(bcolor.x,bcolor.y,bcolor.z,1.0);
 	}
 </script>
 <style>
