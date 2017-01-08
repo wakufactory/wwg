@@ -7,18 +7,13 @@ function WWG() {
 	this.can = null ;
 	this.gl = null ;
 	this.vsize = {"float":1,"vec2":2,"vec3":3,"vec4":4,"mat2":4,"mat3":9,"mat4":16} ;
-
 }
 WWG.prototype.init = function(canvas) {
 	this.can = canvas ;
 	var gl 
 	if(!((gl = canvas.getContext("experimental-webgl")) || (gl = canvas.getContext("webgl")))) { return false } ;
-	this.ext_vao = gl.getExtension('OES_vertex_array_object');
-	if(this.ext_vao == null){
-		console.log('vertex array object not supported'); 
-		return false ;
-	}
 	this.gl = gl 
+	this.ext_vao = gl.getExtension('OES_vertex_array_object');
 	this.ext_inst = gl.getExtension('ANGLE_instanced_arrays');
 	this.ext_anis = gl.getExtension("EXT_texture_filter_anisotropic");
 
@@ -118,7 +113,6 @@ WWG.prototype.Render.prototype.setShader = function(data) {
 	var gl = this.gl ;
 	var self = this ;
 	return new Promise(function(resolve,reject) {
-
 		if(!data.vshader) { reject("no vshader") ;return false;}
 		if(!data.fshader) { reject("no fshader") ;return false;}
 		var vss ;
@@ -296,11 +290,11 @@ WWG.prototype.Render.prototype.frameBuffer = function(os) {
 	return {width:os.width,height:os.height,f:frameBuffer,d:renderBuffer,t:fTexture}
 }
 WWG.prototype.Render.prototype.setRender =function(data) {
-
+	var gl = this.gl ;
 	this.env = data.env ;
 	this.data = data ;
 	var self = this ;
-	var gl = this.gl ;
+
 	return new Promise(function(resolve,reject) {
 		if(!gl) { reject("no init") ;return ;}
 		var pr = [] ;
@@ -322,7 +316,7 @@ WWG.prototype.Render.prototype.setRender =function(data) {
 					return ;
 				}
 				if(self.env.cull) gl.enable(gl.CULL_FACE);
-				gl.frontFace(gl.CCW);	
+				if(self.env.face_cw) gl.frontFace(gl.CW);	
 				if(!self.env.nodepth) gl.enable(gl.DEPTH_TEST);	
 		
 				//set model 
@@ -358,15 +352,19 @@ WWG.prototype.Render.prototype.i16Array = function(ar) {
 	else return new Int16Array(ar) ;
 }
 WWG.prototype.Render.prototype.setObj = function(obj,flag) {
+	var gl = this.gl
 	var geo = obj.geo ;
 	var inst = obj.inst ;
 	ret = {} ;
-	vao = this.wwg.ext_vao.createVertexArrayOES() ;
-	this.wwg.ext_vao.bindVertexArrayOES(vao);
-	ret.vao = vao ;
 	
-	var vbo = this.gl.createBuffer() 
-	this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo) ;
+	if(this.wwg.ext_vao) {
+		var vao = this.wwg.ext_vao.createVertexArrayOES() ;
+		this.wwg.ext_vao.bindVertexArrayOES(vao);
+		ret.vao = vao ;
+	}
+	
+	var vbo = gl.createBuffer() 
+	gl.bindBuffer(gl.ARRAY_BUFFER, vbo) ;
 
 	var tl = 0 ;
 	var ats = [] ;
@@ -375,26 +373,28 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 		tl += this.wwg.vsize[this.vs_att[geo.vtx_at[i]].type] ;
 	}
 	tl = tl*4 ;
+	ret.ats = ats ;
+	ret.tl = tl ;
 	var ofs = 0 ;
 	for(var i in this.vs_att ) {
-		this.gl.disableVertexAttribArray(this.vs_att[i].pos);
+		gl.disableVertexAttribArray(this.vs_att[i].pos);
 	}
 	for(var i=0;i<ats.length;i++) {
 		var s = this.wwg.vsize[ats[i].type] ;
-		this.gl.enableVertexAttribArray(this.vs_att[ats[i].name].pos);
-		this.gl.vertexAttribPointer(this.vs_att[ats[i].name].pos, s, this.gl.FLOAT, false, tl, ofs);
+		gl.enableVertexAttribArray(this.vs_att[ats[i].name].pos);
+		gl.vertexAttribPointer(this.vs_att[ats[i].name].pos, s, gl.FLOAT, false, tl, ofs);
 		ofs += s*4 ;	
 	} 	
 	ret.vbo = vbo ;
 
 	if(geo.idx) {
-		var ibo = this.gl.createBuffer() ;
-		this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ibo) ;
+		var ibo = gl.createBuffer() ;
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo) ;
 		ret.ibo = ibo ;
 	}
 	if(inst) {
-		var ibuf = this.gl.createBuffer() 
-		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, ibuf) ;
+		var ibuf = gl.createBuffer() 
+		gl.bindBuffer(gl.ARRAY_BUFFER, ibuf) ;
 		var tl = 0 ;
 		var ats = [] ;
 		for(var i=0;i<inst.attr.length;i++) {
@@ -402,37 +402,41 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 			tl += this.wwg.vsize[this.vs_att[inst.attr[i]].type] ;
 		}
 		tl = tl*4 ;
+		ret.iats = ats ;
+		ret.itl = tl ;
 		var ofs = 0 ;
 		for(var i=0;i<ats.length;i++) {
 			var divisor = (inst.divisor)?inst.divisor[i]:1 ;
 			var s = this.wwg.vsize[ats[i].type] ;
 			var pos = this.vs_att[ats[i].name].pos
-			this.gl.enableVertexAttribArray(pos);
-			this.gl.vertexAttribPointer(pos, s, this.gl.FLOAT, false, tl, ofs);
+			gl.enableVertexAttribArray(pos);
+			gl.vertexAttribPointer(pos, s, gl.FLOAT, false, tl, ofs);
 			ofs += s*4 ;
 			this.wwg.ext_inst.vertexAttribDivisorANGLE(pos, divisor)	
 		} 
 		ret.inst = ibuf 
 	}
-	this.wwg.ext_vao.bindVertexArrayOES(null);
+	
+	if(this.wwg.ext_vao) this.wwg.ext_vao.bindVertexArrayOES(null);
 
-	this.wwg.ext_vao.bindVertexArrayOES(vao);
+	if(this.wwg.ext_vao) this.wwg.ext_vao.bindVertexArrayOES(vao);
+	var dmode = (geo.dynamic)?gl.DYNAMIC_DRAW:gl.STATIC_DRAW
 	if(flag) {
-		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo) ;
-		this.gl.bufferData(this.gl.ARRAY_BUFFER, 
-			this.f32Array(geo.vtx), this.gl.STATIC_DRAW) ;
+		gl.bindBuffer(gl.ARRAY_BUFFER, vbo) ;
+		gl.bufferData(gl.ARRAY_BUFFER, 
+			this.f32Array(geo.vtx), dmode) ;
 	}
 	if(flag && geo.idx) {
-		this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ibo) ;
-		this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, 
-			this.i16Array(geo.idx),this.gl.STATIC_DRAW ) ;
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo) ;
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, 
+			this.i16Array(geo.idx),dmode ) ;
 	}
 	if(flag && inst) {
-		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, ibuf) ;
-		this.gl.bufferData(this.gl.ARRAY_BUFFER, 
-			this.f32Array(inst.data),this.gl.STATIC_DRAW ) ;
+		gl.bindBuffer(gl.ARRAY_BUFFER, ibuf) ;
+		gl.bufferData(gl.ARRAY_BUFFER, 
+			this.f32Array(inst.data),dmode ) ;
 	}
-	this.wwg.ext_vao.bindVertexArrayOES(null);
+	if(this.wwg.ext_vao) this.wwg.ext_vao.bindVertexArrayOES(null);
 		
 	return ret ;
 }
@@ -458,6 +462,7 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 	for(var b=0;b<this.obuf.length;b++) {
 		var cmodel = this.data.model[b] ;
 		var geo = cmodel.geo ;
+
 		if(cmodel.hide) continue ;
 		var uval = this.data ;
 		this.setUniValues(this.data) ;
@@ -473,9 +478,37 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 		if(cmodel.preFunction) {
 			cmodel.preFunction(gl,cmodel) ;
 		}
+		var obuf = this.obuf[b] ;
 		var ofs = 0 ;
-		this.wwg.ext_vao.bindVertexArrayOES(this.obuf[b].vao);
-
+		if(this.wwg.ext_vao)  this.wwg.ext_vao.bindVertexArrayOES(obuf.vao);
+		else {
+			console.log("no vao") 
+			gl.bindBuffer(gl.ARRAY_BUFFER, obuf.vbo) ;
+			var aofs = 0 ;
+			for(var i in this.vs_att ) {
+				gl.disableVertexAttribArray(this.vs_att[i].pos);
+			}
+			for(var i=0;i<obuf.ats.length;i++) {
+				var s = this.wwg.vsize[obuf.ats[i].type] ;
+				gl.enableVertexAttribArray(this.vs_att[obuf.ats[i].name].pos);
+				gl.vertexAttribPointer(this.vs_att[obuf.ats[i].name].pos, s, gl.FLOAT, false, obuf.tl, aofs);
+				aofs += s*4 ;	
+			}
+			if(this.obuf[b].ibo) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.obuf[b].ibo) ;
+			if(this.obuf[b].inst) {
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.obuf[b].inst) ;
+				var aofs = 0 ;
+				for(var i=0;i<obuf.iats.length;i++) {
+//					var divisor = (inst.divisor)?inst.divisor[i]:1 ;
+					var s = this.wwg.vsize[obuf.iats[i].type] ;
+					var pos = this.vs_att[obuf.iats[i].name].pos
+					gl.enableVertexAttribArray(pos);
+					gl.vertexAttribPointer(pos, s, gl.FLOAT, false, obuf.itl, aofs);
+					aofs += s*4 ;
+					this.wwg.ext_inst.vertexAttribDivisorANGLE(pos, 1)	
+				}
+			}
+		}
 		var gmode = this.wwg.dmodes[geo.mode]
 		if(!gmode) {
 				console.log("Error: illigal draw mode") ;
@@ -488,7 +521,10 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 			if(geo.idx) gl.drawElements(gmode, geo.idx.length, gl.UNSIGNED_SHORT, ofs);
 			else gl.drawArrays(gmode, ofs,geo.vtx.length/3);
 		}
-		this.wwg.ext_vao.bindVertexArrayOES(null);
+		if(this.wwg.ext_vao) this.wwg.ext_vao.bindVertexArrayOES(null);
+		else {
+			
+		}
 		if(cmodel.postFunction) {
 			cmodel.postFunction(gl,cmodel) ;
 		}
