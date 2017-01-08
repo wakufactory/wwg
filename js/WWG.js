@@ -440,16 +440,36 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 		
 	return ret ;
 }
-
-WWG.prototype.Render.prototype.getModelData =function(name) {
-	var ret = null ;
-	if(typeof name != 'string') return this.data.model[name] ;
-	for(var i=0;i<this.data.model.length;i++) {
-		if(this.data.model[i].name==name) { ret = this.data.model[i];break ;}
-	}
-	return ret ;
+WWG.prototype.Render.prototype.getModelIdx = function(name) {
+	var idx = -1 ;
+	if(typeof name != 'string') idx = parseInt(name) ;
+	else {
+		for(var i=0;i<this.data.model.length;i++) {
+			if(this.data.model[i].name==name) break ;
+		}
+		idx =i ;
+	}	
+	return idx ;	
 }
-
+// update attribute buffer 
+WWG.prototype.Render.prototype.updateModel = function(name,mode,buf) {
+	var idx = this.getModelIdx(name) ;
+	var obuf = this.obuf[idx] ;
+	switch(mode) {
+		case "vbo":	
+			this.gl.bindBuffer(this.gl.ARRAY_BUFFER, obuf.vbo) ;
+			break ;
+		case "inst":
+			this.gl.bindBuffer(this.gl.ARRAY_BUFFER, obuf.inst) ;
+			break ;
+	}
+	this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, buf)	
+}
+WWG.prototype.Render.prototype.getModelData =function(name) {
+	var idx = this.getModelIdx(name) ;
+	return this.data.model[idx] ;
+}
+// draw call
 WWG.prototype.Render.prototype.draw = function(update,cls) {
 //	console.log("draw");
 
@@ -475,9 +495,7 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 				if(model) this.setUniValues(model) ;
 			}
 		}
-		if(cmodel.preFunction) {
-			cmodel.preFunction(gl,cmodel) ;
-		}
+
 		var obuf = this.obuf[b] ;
 		var ofs = 0 ;
 		if(this.wwg.ext_vao)  this.wwg.ext_vao.bindVertexArrayOES(obuf.vao);
@@ -508,6 +526,9 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 					this.wwg.ext_inst.vertexAttribDivisorANGLE(pos, 1)	
 				}
 			}
+		}
+		if(cmodel.preFunction) {
+			cmodel.preFunction(gl,cmodel,this.obuf[b]) ;
 		}
 		var gmode = this.wwg.dmodes[geo.mode]
 		if(!gmode) {
