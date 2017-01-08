@@ -24,6 +24,7 @@ WWModel.prototype.loadAjax = function(src) {
 		req.send() ;
 	})
 }
+// load .obj file
 WWModel.prototype.loadObj = function(path,scale) {
 	var self = this ;
 	if(!scale) scale=1.0 ;
@@ -79,6 +80,7 @@ WWModel.prototype.loadObj = function(path,scale) {
 		})
 	}) ;
 }
+//convert vtx data to vbo array
 WWModel.prototype.objModel  = function(addvec) {
 	var v = this.obj_v ;
 	var s = this.obj_i ;
@@ -203,6 +205,7 @@ WWModel.prototype.mergeModels = function(models) {
 	}
 	return m ;
 }
+// generate primitive
 WWModel.prototype.primitive  = function(type,param) {
 	if(!param) param = {} ;
 	var wx = (param.wx)?param.wx:1.0 ;
@@ -344,7 +347,35 @@ WWModel.prototype.primitive  = function(type,param) {
 		break ;
 	case "mesh":
 		
-	}
+		break ;
+	case "torus":
+		this.parametricModel( function(u,v) {
+			var R = 1.0 ;
+			var sr = (param.sr)?param.sr:0.5 ;
+			var du = u ;
+			var dv = -v ;
+			var cx = Math.sin(du*PHI) ;
+			var cz = Math.cos(du*PHI) ;
+			var vx = Math.sin(dv*PHI) ;
+			var vy = Math.cos(dv*PHI) ;
+			var tx = 1
+			var mx = sr*vx*cx ;
+			var mz = sr*vx*cz ;
+			var my = sr*vy ;
+			var ml = Math.sqrt(mx*mx+my*my+mz*mz) ;
+	
+			var px = R*cx + tx*mx ;
+			var pz = R*cz + tx*mz ;
+			var py = tx*my ;
+			var r = {
+				px:px*wx, py:py*wy, pz:pz*wz,
+				nx:0, ny:0, nz:0,
+				mu:u, mv:v }
+			return r ;			
+			
+		},{start:0,end:1.0,div:div*2},{start:0,end:1,div:div}) ;
+		return this ;
+	}	
 	this.obj_v = p 
 	this.obj_n = n
 	this.obj_t = t
@@ -354,4 +385,81 @@ WWModel.prototype.primitive  = function(type,param) {
 //	console.log(t)
 //	console.log(s)
 	return this ;
+}
+// generate parametric model by function
+WWModel.prototype.parametricModel =function(func,pu,pv,opt) {
+	pos = [] ;
+	norm = [] ;
+	uv = [] ;
+	indices = [] ;
+
+	var du = (pu.end - pu.start)/pu.div ;
+	var dv = (pv.end - pv.start)/pv.div ;
+	for(var iu =0; iu <= pu.div ;iu++ ) {
+		for(var iv = 0 ;iv<= pv.div; iv++ ) {
+			var u = pu.start+du*iu ;
+			var v = pv.start+dv*iv ;
+			var p = func(u,v) ;
+			pos.push( [p.px,p.py,p.pz] ) ;
+			uv.push([p.mu,p.mv]) ;
+			// calc normal
+			if(p.nx==0&&p.ny==0&&p.nz==0) {
+				var dud = du/10 ; var dvd = dv/10 ;
+				var du0 = func(u-dud,v) ; var du1 = func(u+dud,v) ;
+				var nux = (du1.px - du0.px)/(dud*2) ;
+				var nuy = (du1.py - du0.py)/(dud*2) ;
+				var nuz = (du1.pz - du0.pz)/(dud*2) ;
+				var dv0 = func(u,v-dvd) ; var dv1 = func(u,v+dvd) ;
+				var nvx = (dv1.px - dv0.px)/(dvd*2) ;
+				var nvy = (dv1.py - dv0.py)/(dvd*2) ;
+				var nvz = (dv1.pz - dv0.pz)/(dvd*2) ;
+				var nx = nuy*nvz - nuz*nvy ;
+				var ny = nuz*nvx - nux*nvz ;
+				var nz = nux*nvy - nuy*nvx ;
+				var nl = Math.sqrt(nx*nx+ny*ny+nz*nz); 
+				p.nx = nx/nl ;
+				p.ny = ny/nl ;
+				p.nz = nz/nl ;
+			}
+			norm.push([p.nx, p.ny,p.nz] ) ;
+		}
+	}
+	var d2 = pv.div+1 ;
+	for(var j = 0 ; j < pu.div ; ++j) {
+		var base = j * d2;
+		for(var i = 0 ; i < pv.div ; ++i) {
+			indices.push([base+i,base+i+d2,base+i+d2+1,base+i+1])	
+		}	
+
+	}
+	this.obj_v = pos
+	this.obj_n = norm
+	this.obj_t = uv
+	this.obj_i = indices 
+	return this ;
+}
+
+// other utils 
+WWModel.prototype.HSV2RGB = function( H, S, V ) {
+	var ih;
+	var fl;
+	var m, n;
+	var rr,gg,bb ;
+	H = H * 6 ;
+	ih = Math.floor( H );
+	fl = H - ih;
+	if( !(ih & 1)) fl = 1 - fl;
+	m = V * ( 1 - S );
+	n = V * ( 1 - S * fl );
+	switch( ih ){
+		case 0:
+		case 6:
+			rr = V; gg = n; bb = m; break;
+		case 1: rr = n; gg = V; bb = m; break;
+		case 2: rr = m; gg = V; bb = n; break;
+		case 3: rr = m; gg = n; bb = V; break;
+		case 4: rr = n; gg = m; bb = V; break;
+		case 5: rr = V; gg = m; bb = n; break;
+	}
+	return [rr,gg,bb,1.0] ;
 }

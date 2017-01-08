@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width" /> 
-<title>WWG (walkaround)</title>
+<title>WWG (parametric model)</title>
 <script src="js/WWG.js"></script>
 <script src="js/CanvasMatrix.js"></script>
 <script src="js/WWModel.js"></script>
@@ -11,6 +11,7 @@
 <script>
 var pixRatio = window.devicePixelRatio ;
 var isStereo = false ;
+var PHI = Math.PI *2 ;
 onload = function() {
 	// canvas initialize
 	var can = document.getElementById('screen1') ;
@@ -26,7 +27,7 @@ onload = function() {
 	}
 	// scene data
 	var scene = {
-		env:{clear_color:[0.3,0.4,0.5,1.0],cull:true},
+		env:{clear_color:[0.6,0.6,0.6,1.0],cull:true},
 		vshader:{
 			text: document.getElementById('vshader').innerText
 		},
@@ -34,81 +35,66 @@ onload = function() {
 			text: document.getElementById('fshader').innerText
 		},
 		vs_uni:{
-			lightVec:[1,1.5,0.9],
-			lightPos:[0,15,0]
+			lightVec:[1,0.8,0.9],
 		},
 		fs_uni:{
-			color:[1.0,0.2,0.2,1.0],
-			lightCol:[0.8,0.8,1.0],
-			tex:0,
-			mode:3
+			bcolor:[0.2,0.2,0.4,1.0],
+			mode:0
 		},
-		texture:[
-			{src:"res/tex1.png",opt:{flevel:2,anisotropy:4}}
-		],
 		model:[
+		{name:"torus",
+			geo:new WWModel().primitive("torus",{div:20,sr:0.4}).objModel(),
+			bm:new CanvasMatrix4().translate(0,2,0),
+			fs_uni:{bcolor:[1.0,1.0,1.0,1.0],mode:2}},
+		{name:"wave",
+			geo:new WWModel().parametricModel(function(u,v){
+				var r = Math.sqrt(u*u+v*v) 
+				var d = Math.cos(r/2*PHI)+1
+				var cv = Math.cos(r*4*PHI)*d*0.5
+				return {
+					px:u*4,
+					py:cv*0.4,
+					pz:-v*4,
+					nx:0,ny:0,nz:0,mu:u,mv:v} 				
+			},{start:-1,end:1.0,div:100},{start:-1,end:1,div:100}).objModel(),
+			fs_uni:{bcolor:[1.0,0.2,0.2,1.0],mode:2}
+		},
 		{name:"axis",
 			geo:{mode:"lines",
 			vtx_at:["position"],
-			vtx:[0,0,0, 100,0,0, 0,0,0, 0,100,0, 0,0,0, 0,0,100]},
-			fs_uni:{color:[1.0,1.0,1.0,1.0],mode:1}},
-		{name:"base",
-			geo:new WWModel().primitive("plane",{wx:100,wz:100}).objModel(),
-			bm:new CanvasMatrix4(),
-			fs_uni:{color:[0.6,0.6,0.6,1.0],mode:2}},
-		{name:"light",
-			geo:new WWModel().primitive("sphere",{wx:0.5,wy:0.5,wz:0.5}).objModel(),
-			bm:new CanvasMatrix4().translate(0,15,0),
-			fs_uni:{color:[0.8,0.8,1.0,1.0],mode:1}},
-		{name:"n1",
-			geo:new WWModel().primitive("cylinder",{div:20,wx:1,wz:1,wy:15}).objModel(),
-			bm:new CanvasMatrix4().translate(10,0,0),
-			fs_uni:{color:[0.6,0.9,0.6,1.0],mode:0}},
-		{name:"n2",
-			geo:new WWModel().primitive("cylinder",{div:20,wx:1,wz:1,wy:15}).objModel(),
-			bm:new CanvasMatrix4().translate(-10,0,0),
-			fs_uni:{color:[0.9,0.6,0.6,1.0],mode:0}},
-		{name:"n3",
-			geo:new WWModel().primitive("cylinder",{div:20,wx:1,wz:1,wy:15}).objModel(),
-			bm:new CanvasMatrix4().translate(0,0,10),
-			fs_uni:{color:[0.6,0.9,0.9,1.0],mode:0}},
-		{name:"n4",
-			geo:new WWModel().primitive("cylinder",{div:20,wx:1,wz:1,wy:15}).objModel(),
-			bm:new CanvasMatrix4().translate(0,0,-10),
-			fs_uni:{color:[0.9,0.9,0.6,1.0],mode:0}},
+			vtx:[0,0,0, 200,0,0, 0,0,0, 0,200,0, 0,0,0, 0,0,200]},
+			fs_uni:{bcolor:[1.0,1.0,1.0,1.0],mode:1}},
 		]
 	}
 
 	// scene update
 	function calcMatrix(render,p,sf) {
 		var RAD = Math.PI/180 ;
-		var dx = sf * 0.05 ;	// stereo base
+		var dx = sf * 0.1 ;	// stereo base
 		var aspect = can.width/(can.height*((isStereo)?2:1)) ;
-		// calc camera matrix
+		var ret = {};
 
-		// self camera mode 
-		var mx = p.mx ;
-		var mz = p.mz ;
-		var my = 1
-		var cx = Math.sin(p.camRY*RAD)*1*Math.cos(p.camRX*RAD)
-		var cy = -Math.sin(p.camRX*RAD)*1 ; 
-		var cz = -Math.cos(p.camRY*RAD)*1*Math.cos(p.camRX*RAD)
-		var camX = 0 ,camY = 0, camZ = 0 ;
+		// bird camera mode 
+		var mx = my = mz = 0 ;
+		var camd=  5 ;
+		var camX = -Math.sin(p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
+		var camY = Math.sin(p.camRX*RAD)*camd ; 
+		var camZ = Math.cos(p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
+		var cx = 0 ,cy = 0, cz = 0 ;
 		var upx = 0,upy = 1 ,upz = 0 ;
-		var cl = Math.sqrt(cx*cx+cy*cy+cz*cz);
-		p.cx = cx / cl ;
-		p.cy = cy / cl ;
-		p.cz = cz / cl ;
-
+		
+		// view light 
+//		ret.vs_uni = {lightVec:[camX,camY,camZ]}
+		
 		// X vector = Y cross Z
 		var xx =  upy * (camZ-cz) - upz * (camY-cy);
 		var xy = -upx * (camZ-cz) + upz * (camX-cx);
 		var xz =  upx * (camY-cy) - upy * (camX-cx);
 		var mag = Math.sqrt(xx * xx + xy * xy + xz * xz);
 		xx /= mag ; xy /=mag ; xz /= mag ;
-		var camM = new CanvasMatrix4().lookat(camX+xx*dx+mx,camY+xy*dx+my,camZ+xz*dx+mz,cx+mx,cy+my,cz+mz,upx,upy,upz).
-			perspective(50,aspect, 0.1, 200)
-					
+		var camM = new CanvasMatrix4().lookat(camX+xx*dx+mx,camY+xy*dx+my,camZ+xz*dx+mz, cx+mx,cy+my,cz+mz, upx,upy,upz).
+			perspective(isStereo?70:60,aspect, 0.1, 300)
+			
 		// calc each mvp matrix and invert matrix
 		var mod = [] ;		
 		for(var i=0;i<render.modelCount;i++) {
@@ -120,7 +106,8 @@ onload = function() {
 					invMatrix:new CanvasMatrix4(m).invert().getAsWebGLFloatArray()}
 			}
 		}
-		return {model:mod} ;
+		ret.model = mod ;
+		return ret ;
 	}
 	function update(render,p) {
 		// draw call 
@@ -136,7 +123,7 @@ onload = function() {
 		}
 	}
 
-	var p = {mx:15,mz:18,camRX:0,camRY:0,rotX:0,rotY:0,ofsY:0}
+	var p = {camRX:30,camRY:-30,rotX:0,rotY:0,ofsY:0}
 	//create render unit
 	var r = wwg.createRender() ;
 	r.setRender(scene).then(function() {
@@ -160,7 +147,7 @@ onload = function() {
 		})();		
 			
 		//mouse intraction
-		var mag = 400/can.width;
+		var mag = 300*pixRatio/can.width;
 		var keymag= 2 ;
 		var m = new Pointer(can,{
 			down:function(d) {
@@ -181,28 +168,13 @@ onload = function() {
 		})
 		document.body.addEventListener("keydown", function(ev){
 			switch(ev.keyCode) {
-			case 38:
-				p.mx += p.cx * keymag ;
-				p.mz += p.cz * keymag ;
-				break ;
-			case 40:
-				p.mx -= p.cx * keymag ;
-				p.mz -= p.cz * keymag ;
-				break ;
-			case 37:
-				p.camRY -=  keymag ;
-				rotY = p.camRY ;
-				 break ;
-			case 39:
-				p.camRY += keymag ;
-				rotY = p.camRY ;
-				 break ;			
+			case 37:rotY -= keymag ; break ;
+			case 38:rotX -= keymag ; if(rotX<-90) rotX = -90 ; break ;
+			case 39:rotY += keymag ; break ;
+			case 40:rotX += keymag ; if(rotX>90) rotX = 90 ; break ;
 			}
-		})
-		document.getElementById("rs").addEventListener("input", function(ev){
-			var p = 50*this.value/1000-10 ;
-			r.data.vs_uni.lightPos = [0,p,0] 
-			r.data.model[2].bm = new CanvasMatrix4().translate(0,p,0)
+			p.camRX = rotX ;
+			p.camRY = rotY ;
 		})
 		document.getElementById("isstereo").addEventListener("change", function(ev) {
 			isStereo = this.checked ;
@@ -218,57 +190,48 @@ onload = function() {
 	attribute vec3 position;
 	attribute vec3 norm;
 	attribute vec2 uv ;
-
+	attribute vec3 ipos ;
+	attribute vec4 icolor ;
+	
 	uniform mat4 mvpMatrix;
 	uniform mat4 invMatrix;
 	uniform vec3 lightVec ;
-	uniform vec3 lightPos ;
 	varying vec2 tuv ;
-	varying vec3 tnorm ;
-	varying vec3 lpos ;
-	varying vec3 pos ;
 	varying float light ;
+	varying vec4 color ;
 
 	void main() {
+		color = icolor ;
 		tuv = vec2(uv.x,1.0-uv.y) ;
-		lpos = (invMatrix * vec4(lightPos,1.0)).xyz;
-		tnorm = norm ;
-		pos = position ;
-		gl_Position =  mvpMatrix * vec4(position, 1.0)  ;
+		light =clamp(dot(norm, normalize(invMatrix * vec4(lightVec,0.0)).xyz),0.0,1.0)*0.8+0.2;
+		gl_Position = mvpMatrix * vec4(position+ipos, 1.0) ;
 	}
 </script>
 
 <! --------------- Fragment Shader ---------------- ->
 <script id="fshader" type="x-shader/x-fragment">
 	precision highp float;
-	uniform vec4 color ;
+
 	uniform int mode ;
+	uniform vec4 bcolor ;
 	uniform sampler2D tex ;
-	uniform vec3 lightCol ;
 
 	varying vec2 tuv ;
-	varying vec3 tnorm ;
-	varying vec3 lpos ;
-	varying vec3 pos ;
 	varying float light ;
+	varying vec4 color ;
 	
 	void main() {
-		vec3 lv = lpos - pos.xyz ;
-		float p = length(lv) ;
-		p = 10.0 / (p) ;
-		float light =clamp((dot(tnorm, normalize(lv))+0.5)/1.5*p,0.0,1.0)*0.9+0.1;
-
 		vec3 col = color.xyz ;
 		if(mode==2) {  //checker 
-			float dx = mod(tuv.x*100.0,1.0) ;
-			float dy = mod(tuv.y*100.0,1.0) ;
+			float dx = mod(tuv.x*10.0,1.0) ;
+			float dy = mod(tuv.y*10.0,1.0) ;
 			float t = (dx<0.5) ^^ (dy<0.5)?1.0:0.0 ;
-			col = vec3(col.x*t,col.y*t,col.z*t) ;
+			col = vec3(bcolor.x*t,bcolor.y*t,bcolor.z*t) ;
 		}
 		if(mode==3) {  //texture 
-			col = texture2D(tex, tuv).xyz ;
+//			col = texture2D(tex, tuv).xyz ;
 		}
-   		gl_FragColor = (mode!=1) ? vec4(light*lightCol.x*col.x, light*lightCol.y*col.y, light*lightCol.z*col.z, 1.0):vec4(color.x,color.y,color.z,1.0);
+   		gl_FragColor = (mode!=1) ? vec4(light*col.x, light*col.y, light*col.z, 1.0):vec4(bcolor.x,bcolor.y,bcolor.z,1.0);
 	}
 </script>
 <style>
@@ -286,4 +249,3 @@ canvas {
 <body>
 <canvas id="screen1" ></canvas><br/>
 <label><input type=checkbox id=isstereo>stereo mode</label>
-<input type=range id=rs min=0 max=1000 style="width:500px">
