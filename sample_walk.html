@@ -62,20 +62,24 @@ onload = function() {
 			fs_uni:{color:[0.8,0.8,1.0,1.0],mode:1}},
 		{name:"n1",
 			geo:new WWModel().primitive("cylinder",{div:20,wx:1,wz:1,wy:15}).objModel(),
-			bm:new CanvasMatrix4().translate(10,0,0),
-			fs_uni:{color:[0.6,0.9,0.6,1.0],mode:0}},
-		{name:"n2",
-			geo:new WWModel().primitive("cylinder",{div:20,wx:1,wz:1,wy:15}).objModel(),
-			bm:new CanvasMatrix4().translate(-10,0,0),
-			fs_uni:{color:[0.9,0.6,0.6,1.0],mode:0}},
-		{name:"n3",
-			geo:new WWModel().primitive("cylinder",{div:20,wx:1,wz:1,wy:15}).objModel(),
-			bm:new CanvasMatrix4().translate(0,0,10),
-			fs_uni:{color:[0.6,0.9,0.9,1.0],mode:0}},
-		{name:"n4",
-			geo:new WWModel().primitive("cylinder",{div:20,wx:1,wz:1,wy:15}).objModel(),
-			bm:new CanvasMatrix4().translate(0,0,-10),
-			fs_uni:{color:[0.9,0.9,0.6,1.0],mode:0}},
+			inst:{attr:["ipos","icolor"],
+				data:(function(){
+					var a = [] 
+					var r = 20 
+					var div = 24 ;
+					for(var i=0;i<div;i++) {
+						var x = r * Math.sin(Math.PI*2*i/div)
+						var z = -r * Math.cos(Math.PI*2*i/div) ;
+						a.push(x);a.push(0);a.push(z);
+						col = WWModel.HSV2RGB(i/div,1,1);
+						a = a.concat(col) ;
+					}
+					console.log(a.length)
+					return a 
+				})(),
+				count:24
+			},
+			fs_uni:{mode:0}},
 		]
 	}
 
@@ -136,7 +140,7 @@ onload = function() {
 		}
 	}
 
-	var p = {mx:15,mz:18,camRX:0,camRY:0,rotX:0,rotY:0,ofsY:0}
+	var p = {mx:20,mz:20,camRX:0,camRY:0,rotX:0,rotY:0,ofsY:0}
 	//create render unit
 	var r = wwg.createRender() ;
 	r.setRender(scene).then(function() {
@@ -218,6 +222,8 @@ onload = function() {
 	attribute vec3 position;
 	attribute vec3 norm;
 	attribute vec2 uv ;
+	attribute vec3 ipos ;
+	attribute vec4 icolor;
 
 	uniform mat4 mvpMatrix;
 	uniform mat4 invMatrix;
@@ -228,13 +234,15 @@ onload = function() {
 	varying vec3 lpos ;
 	varying vec3 pos ;
 	varying float light ;
+	varying vec4 tcolor ;
 
 	void main() {
 		tuv = vec2(uv.x,1.0-uv.y) ;
 		lpos = (invMatrix * vec4(lightPos,1.0)).xyz;
 		tnorm = norm ;
-		pos = position ;
-		gl_Position =  mvpMatrix * vec4(position, 1.0)  ;
+		pos = position + ipos ;
+		tcolor = icolor ;
+		gl_Position =  mvpMatrix * vec4(pos, 1.0)  ;
 	}
 </script>
 
@@ -251,14 +259,16 @@ onload = function() {
 	varying vec3 lpos ;
 	varying vec3 pos ;
 	varying float light ;
+	varying vec4 tcolor ;
 	
 	void main() {
 		vec3 lv = lpos - pos.xyz ;
 		float p = length(lv) ;
-		p = 10.0 / (p) ;
+		p = 20.0 / (p) ;
 		float light =clamp((dot(tnorm, normalize(lv))+0.5)/1.5*p,0.0,1.0)*0.9+0.1;
 
 		vec3 col = color.xyz ;
+		if(mode==0) col = tcolor.xyz ;
 		if(mode==2) {  //checker 
 			float dx = mod(tuv.x*100.0,1.0) ;
 			float dy = mod(tuv.y*100.0,1.0) ;
