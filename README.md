@@ -1,4 +1,15 @@
 #Simple WebGL wrapper library
 
-usage: see samples :P
+##Target 
+  Chrome,Firefox,Safari,Edge
+
+##Modules
+ - js/WWG.js  WWG main module
+ - js/WWModel.js  model generator
+ - js/CanvasMatrix.js  matrix calc library
+ - js/Pointer.js  mouse and touch handling
+ 
+##Usage
+
+See samples :P
 
