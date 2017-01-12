@@ -81,7 +81,7 @@ WWModel.prototype.loadObj = function(path,scale) {
 	}) ;
 }
 //convert vtx data to vbo array
-WWModel.prototype.objModel  = function(addvec) {
+WWModel.prototype.objModel  = function(addvec,mode) {
 	var v = this.obj_v ;
 	var s = this.obj_i ;
 	var n = this.obj_n ;
@@ -159,7 +159,9 @@ WWModel.prototype.objModel  = function(addvec) {
 			vbuf.push(t[i][1]) ;
 		}
 		if(addvec) {
-			
+			for(av=0;av<addvec.length;av++) {
+				vbuf = vbuf.concat(addvec[av].data[i]) ;
+			}
 		}
 	}
 //	console.log(vbuf) ;
@@ -168,6 +170,9 @@ WWModel.prototype.objModel  = function(addvec) {
 	this.vbuf = vbuf ;
 	var ret = {mode:"tri",vtx_at:["position","norm"],vtx:vbuf,idx:ibuf} ;
 	if(t) ret.vtx_at.push("uv") ;
+	if(addvec) {
+		for(av=0;av<addvec.length;av++) ret.vtx_at.push(addvec[av].attr) ;
+	}
 	return ret ;
 }
 // generate normal vector lines
@@ -185,6 +190,10 @@ WWModel.prototype.normLines = function() {
 		nv.push(v[i][2]+n[i][2]*vm) ;
 	}
 	return  {mode:"lines",vtx_at:["position"],vtx:nv} ;
+}
+// mult 4x4 matrix
+WWModel.prototype.multMatrix4 = function(m4) {
+	
 }
 WWModel.prototype.mergeModels = function(models) {
 	var m = this ;
@@ -440,7 +449,7 @@ WWModel.prototype.parametricModel =function(func,pu,pv,opt) {
 }
 
 // other utils 
-WWModel.prototype.HSV2RGB = function( H, S, V ) {
+WWModel.HSV2RGB = function( H, S, V ) {
 	var ih;
 	var fl;
 	var m, n;
@@ -462,4 +471,18 @@ WWModel.prototype.HSV2RGB = function( H, S, V ) {
 		case 5: rr = V; gg = m; bb = n; break;
 	}
 	return [rr,gg,bb,1.0] ;
+}
+WWModel.snormal = function(pa) {
+	var yx = pa[1][0]-pa[0][0];
+	var yy = pa[1][1]-pa[0][1];
+	var yz = pa[1][2]-pa[0][2];
+	var zx = pa[2][0]-pa[0][0];
+	var zy = pa[2][1]-pa[0][1];
+	var zz = pa[2][2]-pa[0][2];				
+	var xx =  yy * zz - yz * zy;
+	var xy = -yx * zz + yz * zx;
+	var xz =  yx * zy - yy * zx;
+	var vn = Math.sqrt(xx*xx+xy*xy+xz*xz) ;
+	xx /= vn ; xy /= vn ; xz /= vn ;
+	return [xx,xy,xz] ;
 }
