@@ -3,6 +3,8 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width" /> 
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>WWG (instancing)</title>
 <script src="js/WWG.js"></script>
 <script src="js/CanvasMatrix.js"></script>
@@ -47,7 +49,7 @@ onload = function() {
 		{name:"tama",
 			geo:new WWModel().primitive("sphere",{div:10,wx:0.4,wy:0.4,wz:0.4}).objModel(),
 			//instancing data
-			inst:{attr:["ipos","icolor"]}
+			inst:{attr:["ipos","icolor"],dynamic:true}
 			},
 		{name:"axis",
 			geo:{mode:"lines",
@@ -57,7 +59,7 @@ onload = function() {
 		]
 	}
 	//make instance data
-	var div=16
+	var div=20
 	var r = [] ;
 	for(x=0;x<div;x++) {
 		for(y=0;y<div;y++) {
@@ -73,7 +75,6 @@ onload = function() {
 	}
 	scene.model[1].inst.data = r ;
 	scene.model[1].inst.count = div*div*div ;
-	scene.model[1].geo.dynamic = true ;
 	var inst_array = new Float32Array(r) ;
 
 	// scene update

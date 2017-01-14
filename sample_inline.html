@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width" /> 
+<title>WWG (inline canvas)</title>
+<script>
+</script>
+<style>
+body {
+	text-align:center ;
+}
+div.bgcanvas {
+	position:relative ;
+}
+div.bgcanvas div {
+	position:absolute ;	
+	width:100%;
+}
+</style>
+</head>
+<body>
+<h1>Inline Sample</h1>
+<div>
+<script src="js/WWG.js"></script>
+<script src="js/CanvasMatrix.js"></script>
+<script src="js/WWModel.js"></script>
+<script>
+(function() {
+// create canvas
+var can = document.createElement("canvas") ;
+can.width = 200 ;
+can.height = 200 ;
+document.currentScript.parentNode.appendChild(can) ;
+
+var render = {
+	env:{clear_color:[1.0,1.0,1.0,0.0]},
+	vshader:{
+		text:[
+			"uniform mat4 mvpMatrix;",
+			"attribute vec3 position;",
+			"attribute vec3 norm;",
+			"attribute vec2 uv;",
+			"varying vec3 pcolor;",
+			"void main() { ",
+			"	pcolor = (norm+1.0)/2.0; uv;",
+			"	gl_Position = mvpMatrix * vec4(position, 1.0) ;",
+			"}"
+		].join("\n")
+	},
+	fshader:{
+		text:[
+			"precision mediump float;",
+			"varying vec3 pcolor;",
+			"void main() {",
+			"	gl_FragColor = vec4(pcolor,1.0) ;",
+			"}"
+		].join("\n")
+	},
+	vs_uni:{
+	},
+	model:[
+		{geo:new WWModel().primitive("box").objModel()}
+	]
+}
+
+var wwg = new WWG() ;
+if(!wwg.init(can)) {
+	var ct = can.getContext("2d") ;
+	ct.font = "16px Sans-serif" ;
+	ct.fillText("not support",can.width/2-40,can.height/2) ;
+	return ;
+}
+//create render unit
+var r = wwg.createRender() ;
+//parse render data
+r.setRender(render).then(function() {
+	console.log(r) ;
+	//draw loop
+	var rotY =  0 ;
+	var vpm = new CanvasMatrix4().
+			rotate(30,1,0,0).
+			translate(0,0,-5).
+			perspective(40,1.0,0.1,10)
+	var lt = new Date().getTime() ;
+	(function loop(){
+		window.requestAnimationFrame(loop) ;
+		var ct = new Date().getTime() ;
+		var tint = ct - lt ;
+		if(tint<1000/60) return ;
+		lt = ct ;
+		rotY += tint/20 ;
+		r.draw({vs_uni:{mvpMatrix:new CanvasMatrix4().
+			rotate(rotY,1,1,0).multRight(vpm).getAsWebGLFloatArray()}}) ;
+//			console.log(Math.floor(1000/(ct - lt)+0.5)) ;
+
+	})();	
+}).catch(function(err){
+	console.log(err) ;
+})
+})()
+</script>
+</div>
+<div>
+inline canvas generated
+</div>
+<h2>another webGL canvas</h2>
+<div class=bgcanvas>
+<div>
+<br/><br/>
+bakground canvas<br/>
+overwrapped!
+</div>
+<script>
+(function() {
+// create canvas
+var can = document.createElement("canvas") ;
+can.width = 200 ;
+can.height = 200 ;
+document.currentScript.parentNode.appendChild(can) ;
+
+var render = {
+	env:{clear_color:[1.0,1.0,1.0,0.0]},
+	vshader:{
+		text:[
+			"uniform mat4 mvpMatrix;",
+			"uniform vec3 col;",
+			"attribute vec3 position;",
+			"attribute vec3 norm;",
+			"attribute vec2 uv;",
+			"varying vec3 pcolor;",
+			"void main() { ",
+			"	norm;",
+			"	float dx = mod((uv.x+0.01)*20.0,1.0) ;",
+			"	float t = (dx<0.5)?1.0:0.0 ;",
+			"	pcolor = vec3(col.x*t,col.y*t,col.z*t) ;",
+			"	gl_Position = mvpMatrix * vec4(position, 1.0) ;",
+			"}"
+		].join("\n")
+	},
+	fshader:{
+		text:[
+			"precision mediump float;",
+			"varying vec3 pcolor;",
+			"void main() {",
+			"	gl_FragColor = vec4(pcolor,1.0) ;",
+			"}"
+		].join("\n")
+	},
+	vs_uni:{
+		col:[1.0,0.5,1.0]
+	},
+	model:[
+		{geo:new WWModel().primitive("sphere",{wx:0.5,wy:0.5,wz:0.5,div:20}).objModel()}
+	]
+}
+
+var wwg = new WWG() ;
+if(!wwg.init(can)) {
+	var ct = can.getContext("2d") ;
+	ct.font = "16px Sans-serif" ;
+	ct.fillText("not support",can.width/2-40,can.height/2) ;
+	return ;
+}
+//create render unit
+var r = wwg.createRender() ;
+//parse render data
+r.setRender(render).then(function() {
+	console.log(r) ;
+	//draw loop
+	var rotY =  0 ;
+	var vpm = new CanvasMatrix4().
+			rotate(40,1,0,0).
+			translate(0,0,-6).
+			perspective(40,1.0,0.1,10)
+	var lt = new Date().getTime() ;
+	(function loop(){
+		window.requestAnimationFrame(loop) ;
+		var ct = new Date().getTime() ;
+		var tint = ct - lt ;
+		if(tint<1000/60) return ;
+		lt = ct ;
+		rotY += tint/20 ;
+		var t = Math.PI*rotY/180 ;
+		r.draw({vs_uni:{mvpMatrix:new CanvasMatrix4().
+			translate(Math.sin(t*3),Math.cos(t*2),Math.cos(t)).
+			multRight(vpm).getAsWebGLFloatArray()}}) ;
+//			console.log(Math.floor(1000/(ct - lt)+0.5)) ;
+
+	})();	
+}).catch(function(err){
+	console.log(err) ;
+})
+})()
+</script>
+
+</div>
+</body>

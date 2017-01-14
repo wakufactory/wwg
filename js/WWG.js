@@ -12,10 +12,12 @@ WWG.prototype.init = function(canvas) {
 	this.can = canvas ;
 	var gl 
 	if(!((gl = canvas.getContext("experimental-webgl")) || (gl = canvas.getContext("webgl")))) { return false } ;
+	if(!window.Promise) return false ;
 	this.gl = gl 
 	this.ext_vao = gl.getExtension('OES_vertex_array_object');
 	this.ext_inst = gl.getExtension('ANGLE_instanced_arrays');
 	this.ext_anis = gl.getExtension("EXT_texture_filter_anisotropic");
+	this.ext_ftex = gl.getExtension('OES_texture_float');
 
 	this.dmodes = {"tri_strip":gl.TRIANGLE_STRIP,"tri":gl.TRIANGLES,"points":gl.POINTS,"lines":gl.LINES,"line_strip":gl.LINE_STRIP }
 	return true ;
@@ -76,6 +78,12 @@ WWG.prototype.Render.prototype.setUnivec = function(uni,value) {
 		case "float":
 			this.gl.uniform1f(uni.pos,value) ;
 			break ;
+		case "intv":
+			this.gl.uniform1iv(uni.pos,this.i16Array(value)) ;
+			break ;
+		case "floatv":
+			this.gl.uniform1fv(uni.pos,this.f32Array(value)) ;
+			break ;
 		case "sampler2D":
 			if(typeof value == 'string') {
 				for(var i=0;i<this.data.texture.length;i++) {
@@ -98,8 +106,11 @@ WWG.prototype.Render.prototype.setShader = function(data) {
 		for(i=0;i<l.length;i++) {
 			var ln = l[i] ;
 			var tu = 0 ;
-			if( ln.match(/^\s*uniform\s*([0-9a-z]+)\s*([0-9a-z_]+)(\[[0-9]+\])?/i)) {
+			if( ln.match(/^\s*uniform\s*([0-9a-z]+)\s*([0-9a-z_]+)(\[[^\]]+\])?/i)) {
 				var u = {type:RegExp.$1,name:RegExp.$2} ;
+				if(RegExp.$3!="") {
+					u.type = u.type+"v" ;
+				}
 				if(u.type=="sampler2D") u.texunit = tu++ ;
 				uni.push(u) ;
 			}
@@ -192,7 +203,6 @@ WWG.prototype.Render.prototype.setShader = function(data) {
 	})
 }
 WWG.prototype.Render.prototype.setUniValues = function(data) {
-	this.gl.useProgram(this.program);
 	if(data.vs_uni) {
 		for(var i in data.vs_uni) {
 			if(this.vs_uni[i]) {
@@ -420,21 +430,20 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 	if(this.wwg.ext_vao) this.wwg.ext_vao.bindVertexArrayOES(null);
 
 	if(this.wwg.ext_vao) this.wwg.ext_vao.bindVertexArrayOES(vao);
-	var dmode = (geo.dynamic)?gl.DYNAMIC_DRAW:gl.STATIC_DRAW
 	if(flag) {
 		gl.bindBuffer(gl.ARRAY_BUFFER, vbo) ;
 		gl.bufferData(gl.ARRAY_BUFFER, 
-			this.f32Array(geo.vtx), dmode) ;
+			this.f32Array(geo.vtx), (geo.dynamic)?gl.DYNAMIC_DRAW:gl.STATIC_DRAW) ;
 	}
 	if(flag && geo.idx) {
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo) ;
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, 
-			this.i16Array(geo.idx),dmode ) ;
+			this.i16Array(geo.idx),gl.STATIC_DRAW ) ;
 	}
 	if(flag && inst) {
 		gl.bindBuffer(gl.ARRAY_BUFFER, ibuf) ;
 		gl.bufferData(gl.ARRAY_BUFFER, 
-			this.f32Array(inst.data),dmode ) ;
+			this.f32Array(inst.data),(inst.dynamic)?gl.DYNAMIC_DRAW:gl.STATIC_DRAW ) ;
 	}
 	if(this.wwg.ext_vao) this.wwg.ext_vao.bindVertexArrayOES(null);
 		
@@ -469,11 +478,35 @@ WWG.prototype.Render.prototype.getModelData =function(name) {
 	var idx = this.getModelIdx(name) ;
 	return this.data.model[idx] ;
 }
+//update uniform values
+WWG.prototype.Render.prototype.pushUniValues = function(u) {
+	if(u.vs_uni) {
+		for(var i in u.vs_uni) {
+			this.update_uni.vs_uni[i] = u.vs_uni[i] ;
+		}
+	}
+	if(u.fs_uni) {
+		for(var i in u.fs_uni) {
+			this.update_uni.fs_uni[i] = u.fs_uni[i] ;
+		}
+	}
+}
+WWG.prototype.Render.prototype.updateUniValues = function(u) {
+	if(!u) {
+		this.update_uni = {vs_uni:{},fs_uni:{}} ;
+		return ;
+	}
+//	console.log(this.update_uni);
+	this.setUniValues(this.update_uni)
+}
+
 // draw call
 WWG.prototype.Render.prototype.draw = function(update,cls) {
 //	console.log("draw");
 
 	var gl = this.gl ;
+	gl.useProgram(this.program);
+
 	if(this.env.offscreen) {// renderbuffer 
 		gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb.f);
 		gl.viewport(0,0,this.fb.width,this.fb.height) ;
@@ -481,26 +514,26 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 	if(!cls) this.clear() ;
 	for(var b=0;b<this.obuf.length;b++) {
 		var cmodel = this.data.model[b] ;
+		if(cmodel.hide) continue ;
 		var geo = cmodel.geo ;
 
-		if(cmodel.hide) continue ;
-		var uval = this.data ;
-		this.setUniValues(this.data) ;
-		this.setUniValues(cmodel);
+		this.updateUniValues(null) ;
+		this.pushUniValues(this.data) ;
+		this.pushUniValues(cmodel);
 		if(update) {
 			// set modified values
-			this.setUniValues(update) ;
+			this.pushUniValues(update) ;
 			if(update.model) {
 				var model =update.model[b] ;
-				if(model) this.setUniValues(model) ;
+				if(model) this.pushUniValues(model) ;
 			}
 		}
+		this.updateUniValues(1)
 
 		var obuf = this.obuf[b] ;
 		var ofs = 0 ;
 		if(this.wwg.ext_vao)  this.wwg.ext_vao.bindVertexArrayOES(obuf.vao);
 		else {
-			console.log("no vao") 
 			gl.bindBuffer(gl.ARRAY_BUFFER, obuf.vbo) ;
 			var aofs = 0 ;
 			for(var i in this.vs_att ) {
