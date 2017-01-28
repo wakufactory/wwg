@@ -15,11 +15,41 @@ WWG.prototype.init = function(canvas) {
 	if(!window.Promise) return false ;
 	this.gl = gl 
 	this.ext_vao = gl.getExtension('OES_vertex_array_object');
+	if(this.ext_vao) {
+		this.vao_create = function(){return this.ext_vao.createVertexArrayOES()} ;
+		this.vao_bind = function(o){this.ext_vao.bindVertexArrayOES(o)} ;
+	}
 	this.ext_inst = gl.getExtension('ANGLE_instanced_arrays');
+	if(this.ext_inst) {
+		this.inst_divisor = function(p,d){this.ext_inst.vertexAttribDivisorANGLE(p, d)}
+		this.inst_draw = function(m,l,s,o,c){this.ext_inst.drawElementsInstancedANGLE(m,l, s, o, c);}
+		this.inst_drawa = function(m,s,o,c) {this.ext_inst.drawArrayInstancedANGLE(m, s, o, c);}
+	}
 	this.ext_anis = gl.getExtension("EXT_texture_filter_anisotropic");
 	this.ext_ftex = gl.getExtension('OES_texture_float');
 
 	this.dmodes = {"tri_strip":gl.TRIANGLE_STRIP,"tri":gl.TRIANGLES,"points":gl.POINTS,"lines":gl.LINES,"line_strip":gl.LINE_STRIP }
+	this.version = 1 ;
+	return true ;
+}
+WWG.prototype.init2 = function(canvas) {
+	this.can = canvas ;
+	var gl 
+	if(!((gl = canvas.getContext("experimental-webgl2")) || (gl = canvas.getContext("webgl2")))) { return false } ;
+	if(!window.Promise) return false ;
+	console.log("init for webGL2") ;
+	this.gl = gl ;
+	
+	this.ext_vao = true ;
+	this.vao_create = function(){ return this.gl.createVertexArray()} ;
+	this.vao_bind = function(o){this.gl.bindVertexArray(o)} ;
+	this.inst_divisor = function(p,d){this.gl.vertexAttribDivisor(p, d)}
+	this.inst_draw = function(m,l,s,o,c){this.gl.drawElementsInstanced(m,l, s, o, c);}
+	this.inst_drawa = function(m,s,o,c) {this.gl.drawArrayInstanced(m, s, o, c);}
+	this.ext_anis = gl.getExtension("EXT_texture_filter_anisotropic");
+
+	this.dmodes = {"tri_strip":gl.TRIANGLE_STRIP,"tri":gl.TRIANGLES,"points":gl.POINTS,"lines":gl.LINES,"line_strip":gl.LINE_STRIP }
+	this.version = 2 ;
 	return true ;
 }
 WWG.prototype.loadAjax = function(src) {
@@ -368,8 +398,8 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 	ret = {} ;
 	
 	if(this.wwg.ext_vao) {
-		var vao = this.wwg.ext_vao.createVertexArrayOES() ;
-		this.wwg.ext_vao.bindVertexArrayOES(vao);
+		var vao = this.wwg.vao_create() ;
+		this.wwg.vao_bind(vao);
 		ret.vao = vao ;
 	}
 	
@@ -422,14 +452,14 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 			gl.enableVertexAttribArray(pos);
 			gl.vertexAttribPointer(pos, s, gl.FLOAT, false, tl, ofs);
 			ofs += s*4 ;
-			this.wwg.ext_inst.vertexAttribDivisorANGLE(pos, divisor)	
+			this.wwg.inst_divisor(pos, divisor)	
 		} 
 		ret.inst = ibuf 
 	}
 	
-	if(this.wwg.ext_vao) this.wwg.ext_vao.bindVertexArrayOES(null);
+	if(this.wwg.ext_vao) this.wwg.vao_bind(null);
 
-	if(this.wwg.ext_vao) this.wwg.ext_vao.bindVertexArrayOES(vao);
+	if(this.wwg.ext_vao) this.wwg.vao_bind(vao);
 	if(flag) {
 		gl.bindBuffer(gl.ARRAY_BUFFER, vbo) ;
 		gl.bufferData(gl.ARRAY_BUFFER, 
@@ -445,7 +475,7 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 		gl.bufferData(gl.ARRAY_BUFFER, 
 			this.f32Array(inst.data),(inst.dynamic)?gl.DYNAMIC_DRAW:gl.STATIC_DRAW ) ;
 	}
-	if(this.wwg.ext_vao) this.wwg.ext_vao.bindVertexArrayOES(null);
+	if(this.wwg.ext_vao) this.wwg.vao_bind(null);
 		
 	return ret ;
 }
@@ -532,7 +562,7 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 
 		var obuf = this.obuf[b] ;
 		var ofs = 0 ;
-		if(this.wwg.ext_vao)  this.wwg.ext_vao.bindVertexArrayOES(obuf.vao);
+		if(this.wwg.ext_vao)  this.wwg.vao_bind(obuf.vao);
 		else {
 			gl.bindBuffer(gl.ARRAY_BUFFER, obuf.vbo) ;
 			var aofs = 0 ;
@@ -556,7 +586,7 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 					gl.enableVertexAttribArray(pos);
 					gl.vertexAttribPointer(pos, s, gl.FLOAT, false, obuf.itl, aofs);
 					aofs += s*4 ;
-					this.wwg.ext_inst.vertexAttribDivisorANGLE(pos, 1)	
+					this.wwg.inst_divisor(pos, 1)	
 				}
 			}
 		}
@@ -569,13 +599,13 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 				return false ;
 		}
 		if(cmodel.inst) {
-			if(geo.idx) this.wwg.ext_inst.drawElementsInstancedANGLE(gmode, geo.idx.length, gl.UNSIGNED_SHORT, ofs, cmodel.inst.count);
-			else this.wwg.ext_inst.drawArrayInstancedANGLE(gmode, gl.UNSIGNED_SHORT, ofs, cmodel.inst.count);
+			if(geo.idx) this.wwg.inst_draw(gmode, geo.idx.length, gl.UNSIGNED_SHORT, ofs, cmodel.inst.count);
+			else this.wwg.inst_drawa(gmode, gl.UNSIGNED_SHORT, ofs, cmodel.inst.count);
 		} else {
 			if(geo.idx) gl.drawElements(gmode, geo.idx.length, gl.UNSIGNED_SHORT, ofs);
 			else gl.drawArrays(gmode, ofs,geo.vtx.length/3);
 		}
-		if(this.wwg.ext_vao) this.wwg.ext_vao.bindVertexArrayOES(null);
+		if(this.wwg.ext_vao) this.wwg.vao_bind(null);
 		else {
 			
 		}

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width" /> 
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>WWG (instancing)</title>
+<script src="js/WWG.js"></script>
+<script src="js/CanvasMatrix.js"></script>
+<script src="js/WWModel.js"></script>
+<script src="js/Pointer.js"></script>
+<script>
+var pixRatio = window.devicePixelRatio ;
+var isStereo = false ;
+onload = function() {
+	// canvas initialize
+	var can = document.getElementById('screen1') ;
+	can.width= can.offsetWidth*pixRatio ;
+	can.height = can.offsetHeight*pixRatio ;
+	console.log("canvas:"+can.width+" x "+can.height);
+
+	// wwg initialize
+	var wwg = new WWG() ;
+	if(!wwg.init2(can)) {　// init for WebGL2
+		alert("not supported") ;
+		return ;
+	}
+	// scene data
+	var scene = {
+		env:{clear_color:[0.6,0.6,0.6,1.0],cull:true},
+		vshader:{
+			text: document.getElementById('vshader').innerText
+		},
+		fshader:{
+			text: document.getElementById('fshader').innerText
+		},
+		vs_uni:{
+			lightVec:[1,0.8,0.9],
+		},
+		fs_uni:{
+			bcolor:[0.2,0.2,0.4,1.0],
+			mode:0
+		},
+		model:[
+		{name:"sora",
+			geo:new WWModel().primitive("sphere",{div:20,wx:200,wy:200,wz:200,ninv:1}).objModel(),
+			fs_uni:{mode:2}},
+		{name:"tama",
+			geo:new WWModel().primitive("sphere",{div:10,wx:0.4,wy:0.4,wz:0.4}).objModel(),
+			//instancing data
+			inst:{attr:["ipos","icolor"],dynamic:true}
+			},
+		{name:"axis",
+			geo:{mode:"lines",
+			vtx_at:["position"],
+			vtx:[0,0,0, 200,0,0, 0,0,0, 0,200,0, 0,0,0, 0,0,200]},
+			fs_uni:{bcolor:[1.0,1.0,1.0,1.0],mode:1}},
+		]
+	}
+	//make instance data
+	var div=20
+	var r = [] ;
+	for(x=0;x<div;x++) {
+		for(y=0;y<div;y++) {
+			for(z=0;z<div;z++) {
+				//ipos
+				r.push(x-div/2); 
+				r.push(y-div/2); 
+				r.push(z-div/2) ;
+				//icolor
+				r.push(x/div) ;r.push(y/div) ;r.push(z/div); r.push(1.0) ;
+			}
+		}
+	}
+	scene.model[1].inst.data = r ;
+	scene.model[1].inst.count = div*div*div ;
+	var inst_array = new Float32Array(r) ;
+
+	// scene update
+	function calcMatrix(render,p,sf) {
+		var RAD = Math.PI/180 ;
+		var dx = sf * 0.5 ;	// stereo base
+		var aspect = can.width/(can.height*((isStereo)?2:1)) ;
+		var ret = {};
+
+		// bird camera mode 
+		var mx = my = mz = 0 ;
+		var camd=  p.camd ;
+		var camX = -Math.sin(p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
+		var camY = Math.sin(p.camRX*RAD)*camd ; 
+		var camZ = Math.cos(p.camRY*RAD)*camd*Math.cos(p.camRX*RAD)
+		var cx = 0 ,cy = 0, cz = 0 ;
+		var upx = 0,upy = 1 ,upz = 0 ;
+		
+		// view light 
+		ret.vs_uni = {lightVec:[camX,camY,camZ]}
+		
+		// for stereo
+		var xx =  upy * (camZ-cz) - upz * (camY-cy);
+		var xy = -upx * (camZ-cz) + upz * (camX-cx);
+		var xz =  upx * (camY-cy) - upy * (camX-cx);
+		var mag = Math.sqrt(xx * xx + xy * xy + xz * xz);
+		xx /= mag ; xy /=mag ; xz /= mag ;
+		var camM = new CanvasMatrix4().lookat(camX+xx*dx+mx,camY+xy*dx+my, camZ+xz*dx+mz, cx+mx,cy+my,cz+mz, upx,upy,upz).
+			perspective(isStereo?70:60,aspect, 0.1, 400)
+			
+		// update instance data
+		for(i=0;i<inst_array.length;i+=4) {
+			inst_array[i] = inst_array[i++] + (Math.random()-0.5)*0.1 ;							inst_array[i] = inst_array[i++] + (Math.random()-0.5)*0.1 ;
+			inst_array[i] = inst_array[i++] + (Math.random()-0.5)*0.1 ;
+		}
+		render.updateModel("tama","inst",inst_array)
+		
+		// calc each mvp matrix and invert matrix
+		var mod = [] ;		
+		for(var i=0;i<render.modelCount;i++) {
+			var d = render.getModelData(i) ;
+			var m = new CanvasMatrix4(d.bm) ;
+			if(d.mm) m.multRight(d.mm) ;
+			mod[i] = {
+				vs_uni:{mvpMatrix:new CanvasMatrix4(m).multRight(camM).getAsWebGLFloatArray(),
+					invMatrix:new CanvasMatrix4(m).invert().getAsWebGLFloatArray()}
+			}
+		}
+		ret.model = mod ;
+		return ret ;
+	}
+	function update(render,p) {
+		// draw call 
+		if(isStereo) {
+			render.gl.viewport(0,0,can.width/2,can.height) ;
+			render.draw(calcMatrix(render,p,-1),false) ;
+			render.gl.viewport(can.width/2,0,can.width/2,can.height) ;
+			render.draw(calcMatrix(render,p,1),true) ;
+		} else {
+			render.gl.viewport(0,0,can.width,can.height) ;
+			render.draw(calcMatrix(render,p,0),false) ;
+		}
+	}
+
+	var p = {camd:30,camRX:30,camRY:-30,rotX:0,rotY:0,ofsY:0}
+	//create render unit
+	var r = wwg.createRender() ;
+	r.setRender(scene).then(function() {
+		console.log(r) ;
+		var rotX = p.camRX ,rotY = p.camRY ;
+		//draw first time
+		update(r,p);
+		
+		//draw loop
+		var st = new Date().getTime() ;
+		var lt = st ;
+		(function loop(){
+			window.requestAnimationFrame(loop) ;
+			var ct = new Date().getTime() ;
+			var tint = (ct - st) ;
+//			if((ct - lt)<1000/60) return ;
+			if(document.getElementById("autorot").checked)
+				p.camRY += (ct-lt)/100 ;
+
+			update(r,p) ;
+//			console.log(Math.floor(1000/(ct - lt)+0.5)) ;
+			lt = ct ;
+		})();		
+			
+		//mouse intraction
+		var mag = 300*pixRatio/can.width;
+		var keymag= 2 ;
+		var m = new Pointer(can,{
+			down:function(d) {
+				rotY = p.camRY
+				return false ;
+			},
+			move:function(d) {
+				p.camRX = rotX+d.dy*mag ;
+				p.camRY = rotY+d.dx*mag ;
+				if(p.camRX>90)p.camRX=90 ;
+				if(p.camRX<-90)p.camRX=-90 ;
+				return false ;
+			},
+			up:function(d) {
+				rotX += d.dy*mag ;
+				rotY += d.dx*mag; 
+				p.camRX = rotX 
+				p.camRY = rotY	
+				return false ;
+			}
+		})
+		document.body.addEventListener("keydown", function(ev){
+			switch(ev.keyCode) {
+			case 37:rotY -= keymag ; break ;
+			case 38:rotX -= keymag ; if(rotX<-90) rotX = -90 ; break ;
+			case 39:rotY += keymag ; break ;
+			case 40:rotX += keymag ; if(rotX>90) rotX = 90 ; break ;
+			}
+			p.camRX = rotX ;
+			p.camRY = rotY ;
+		})
+		document.getElementById("isstereo").addEventListener("change", function(ev) {
+			isStereo = this.checked ;
+		})
+		document.getElementById("camdist").addEventListener("input", function(ev){
+			p.camd = this.value*200/1000
+		})
+	}).catch(function(err){
+		console.log(err) ;
+	})
+} //onload
+
+</script>
+<! --------------- Vertex Shader ---------------- ->
+<script id="vshader" type="x-shader/x-vertex">
+	attribute vec3 position;
+	attribute vec3 norm;
+	attribute vec2 uv ;
+	attribute vec3 ipos ;
+	attribute vec4 icolor ;
+	
+	uniform mat4 mvpMatrix;
+	uniform mat4 invMatrix;
+	uniform vec3 lightVec ;
+	varying vec2 tuv ;
+	varying float light ;
+	varying vec4 color ;
+
+	void main() {
+		color = icolor ;
+		tuv = vec2(uv.x,1.0-uv.y) ;
+		light =clamp(dot(norm, normalize(invMatrix * vec4(lightVec,0.0)).xyz),0.0,1.0)*0.8+0.2;
+		gl_Position = mvpMatrix * vec4(position+ipos, 1.0) ;
+	}
+</script>
+
+<! --------------- Fragment Shader ---------------- ->
+<script id="fshader" type="x-shader/x-fragment">
+	precision highp float;
+
+	uniform int mode ;
+	uniform vec4 bcolor ;
+	uniform sampler2D tex ;
+
+	varying vec2 tuv ;
+	varying float light ;
+	varying vec4 color ;
+	
+	void main() {
+		vec3 col = color.xyz ;
+		if(mode==2) {  //checker 
+			float dx = mod(tuv.x*10.0,1.0) ;
+			float dy = mod(tuv.y*10.0,1.0) ;
+			float t = (dx<0.5) ^^ (dy<0.5)?1.0:0.0 ;
+			col = vec3(bcolor.x*t,bcolor.y*t,bcolor.z*t) ;
+		}
+		if(mode==3) {  //texture 
+//			col = texture2D(tex, tuv).xyz ;
+		}
+   		gl_FragColor = (mode!=1) ? vec4(light*col.x, light*col.y, light*col.z, 1.0):vec4(bcolor.x,bcolor.y,bcolor.z,1.0);
+	}
+</script>
+<style>
+body {
+	margin:0 ;
+	background-color:#888 ;
+}
+canvas {
+	width:100vw ;
+	height:60vw ;
+
+}
+div.if{
+	user-select:none ;
+	-webkit-user-select:none ;
+	-moz-user-select:none ;
+	-ms-user-select:none ;
+}
+</style>
+</head>
+<body>
+<canvas id="screen1" ></canvas><br/>
+<div class=if>
+<label><input type=checkbox id=autorot checked>auto rot</label>
+<label><input type=checkbox id=isstereo>stereo mode</label>
+<input type=range id=camdist min=1 max=1000 value=150 style="width:50vw">
+</div>
