@@ -144,7 +144,7 @@ WWG.prototype.Render.prototype.setShader = function(data) {
 				if(u.type=="sampler2D") u.texunit = tu++ ;
 				uni.push(u) ;
 			}
-			if( ln.match(/^\s*attribute\s*([0-9a-z]+)\s*([0-9a-z_]+)/i)) {
+			if( ln.match(/^\s*(?:attribute|in)\s*([0-9a-z]+)\s*([0-9a-z_]+)/i)) {
 				att.push( {type:RegExp.$1,name:RegExp.$2}) ;
 			}
 		}
