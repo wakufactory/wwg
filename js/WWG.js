@@ -52,11 +52,11 @@ WWG.prototype.init2 = function(canvas) {
 	this.version = 2 ;
 	return true ;
 }
-WWG.prototype.loadAjax = function(src) {
+WWG.prototype.loadAjax = function(src,opt) {
 	return new Promise(function(resolve,reject) {
 		var req = new XMLHttpRequest();
 		req.open("get",src,true) ;
-		req.responseType = "text" ;
+		req.responseType = (opt && opt.type)?opt.type:"text" ;
 		req.onload = function() {
 			if(this.status==200) {
 				resolve(this.response) ;
@@ -68,6 +68,20 @@ WWG.prototype.loadAjax = function(src) {
 			reject("Ajax error:"+this.statusText)
 		}
 		req.send() ;
+	})
+}
+WWG.prototype.loadImageAjax = function(src) {
+	var self = this ;
+	return new Promise(function(resolve,reject){
+		self.loadAjax(src,{type:"blob"}).then(function(b){
+			timg = new Image ;
+			timg.onload = function() {
+				resolve(timg) ;
+			}
+			timg.src = URL.createObjectURL(b);	
+		}).catch(function(err){
+			reject(err) ;
+		})
 	})
 }
 // Render unit
@@ -296,13 +310,14 @@ WWG.prototype.Render.prototype.loadTex = function(tex) {
 			}
 			img.src = tex.src ;
 		} else if(tex.img instanceof Image) {
-			console.log("tex obj") ;
 			resolve( self.genTex(tex.img,tex.opt) ) 
 		} else if(tex.buffer) {
 			console.log(tex.buffer);
 			resolve( tex.buffer.fb.t) ;
 		} else if(tex.canvas) {
 			resolve( self.genTex(tex.canvas,tex.opt)) ;
+		} else {
+			reject("no image")
 		}
 	})
 }
@@ -377,6 +392,7 @@ WWG.prototype.Render.prototype.setRender =function(data) {
 		}).catch(function(err) {reject(err);})
 	});
 }
+
 WWG.prototype.Render.prototype.clear = function() {
 	var cc = this.env.clear_color ;
 	this.gl.clearColor(cc[0],cc[1],cc[2],cc[3]);
@@ -489,6 +505,12 @@ WWG.prototype.Render.prototype.getModelIdx = function(name) {
 		idx =i ;
 	}	
 	return idx ;	
+}
+// add model
+WWG.prototype.Render.prototype.addModel = function(model) {
+	this.data.model.push(model) ;
+	this.obuf.push(this.setObj(model,true)) ;
+	this.modelCount = this.data.model.length ;
 }
 // update attribute buffer 
 WWG.prototype.Render.prototype.updateModel = function(name,mode,buf) {
