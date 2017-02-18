@@ -2,6 +2,19 @@
 // Version 0.9 
 // 2016-2017 wakufactory.jp 
 // license: MIT 
+// WWG
+//   init(canvas)
+//   init2(canvas)
+//   loadAjax(src,opt)
+//   loadImageAjax(src)
+//   createRender()
+// Render
+//   setRender(scene)
+//   draw(update,cls)
+//   addModel(model)
+//   updateModel(name,mode,buf)
+//   addTex(texobj)
+//   loadTex(tex)
 
 function WWG() {
 	this.can = null ;
@@ -74,7 +87,7 @@ WWG.prototype.loadImageAjax = function(src) {
 	var self = this ;
 	return new Promise(function(resolve,reject){
 		self.loadAjax(src,{type:"blob"}).then(function(b){
-			timg = new Image ;
+			var timg = new Image ;
 			timg.onload = function() {
 				resolve(timg) ;
 			}
@@ -288,7 +301,6 @@ WWG.prototype.Render.prototype.genTex = function(img,option) {
 //		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
 //		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 	if(this.wwg.ext_anis && option.anisotropy) {
-		console.log("set anisotropy:"+option.anisotropy)
 		gl.texParameteri(gl.TEXTURE_2D, this.wwg.ext_anis.TEXTURE_MAX_ANISOTROPY_EXT, option.anisotropy);
 	}
 	gl.bindTexture(gl.TEXTURE_2D, null);	
@@ -320,6 +332,10 @@ WWG.prototype.Render.prototype.loadTex = function(tex) {
 			reject("no image")
 		}
 	})
+}
+WWG.prototype.Render.prototype.addTex = function(texobj) {
+	this.texobj.push(texobj) ;
+	return this.texobj.length-1 ;
 }
 WWG.prototype.Render.prototype.frameBuffer = function(os) {
 	var gl = this.gl ;
