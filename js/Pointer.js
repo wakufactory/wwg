@@ -1,7 +1,7 @@
 //mouse and touch event handler
 Pointer = function(t,cb) {
 	var self = this ;
-	var touch,EV_S,EV_E,EV_M ;
+	var touch,gesture,EV_S,EV_E,EV_M ;
 	function pos(ev) {
 		var x = (touch)?ev.touches[0].clientX:ev.offsetX ;
 		var y = (touch)?ev.touches[0].clientY:ev.offsetY ;
@@ -10,6 +10,7 @@ Pointer = function(t,cb) {
 	t.addEventListener("mousedown", startev,false ) ;
 	t.addEventListener("touchstart", startev,false ) ;
 	function startev(ev) {
+		if(gesture) return ;
 		if(!EV_S) {
 			touch = (ev.type=="touchstart") ;
 			setevent() ;
@@ -43,6 +44,7 @@ Pointer = function(t,cb) {
 			if(cb.out) if(!cb.out({dx:self.dx,dy:self.dy})) ev.preventDefault() ;
 		},false);
 		t.addEventListener(EV_M, function(ev) {
+			if(gesture) return ;
 			var d = pos(ev) ;
 			self.lastd = d ;
 			if(self.mf) {
@@ -52,5 +54,23 @@ Pointer = function(t,cb) {
 			}
 		},false)	
 	}
-
+	t.addEventListener("wheel", function(ev){
+		if(cb.wheel) {
+			if(!cb.wheel(ev.deltaY)) ev.preventDefault() ;
+		}
+	},false ) ;
+	t.addEventListener("gesturestart", function(ev){
+		gesture = true ;
+		if(cb.gesture) {
+			if(!cb.gesture(0,0)) ev.preventDefault() ;
+		}
+	})
+	t.addEventListener("gesturechange", function(ev){
+		if(cb.gesture) {
+			if(!cb.gesture(ev.scale,ev.rotation)) ev.preventDefault() ;
+		}
+	})
+	t.addEventListener("gestureend", function(ev){
+		gesture = false ;
+	})
 }
