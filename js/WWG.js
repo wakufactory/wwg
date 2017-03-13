@@ -91,9 +91,10 @@ WWG.prototype.loadImageAjax = function(src) {
 			timg.onload = function() {
 				resolve(timg) ;
 			}
-			timg.src = URL.createObjectURL(b);	
+			timg.src = URL.createObjectURL(b);
+			b = null ;
 		}).catch(function(err){
-			reject(err) ;
+			resolve(null) ;
 		})
 	})
 }

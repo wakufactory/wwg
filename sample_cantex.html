@@ -16,12 +16,16 @@ onload = function() {
 	var texcanvas = document.getElementById('texcanvas') ;
 	// draw on canvas 
 	var ctx = texcanvas.getContext("2d") ;
-	  ctx.lineWidth = 2 ;
+	  ctx.lineWidth = 4 ;
+	  ctx.fillStyle = "rgba(0,0,0,0)"
+	  ctx.fillRect(0,0,400,400)
+	  ctx.strokeStyle = "rgba(0,0,0,255)"
 	  ctx.beginPath();
 	  ctx.moveTo(10,100) ;
 	  ctx.lineTo(500,500) ;
 	  ctx.lineTo(10,500);
 	  ctx.stroke() ;
+	  ctx.fillStyle = "rgba(255,0,0,255)"
 	  ctx.font = "50px SourceHanSans-Regular" ;
 	  ctx.fillText("テキストを描きます",10,100);
 	 
@@ -57,6 +61,12 @@ onload = function() {
 		]
 	}
 	//create render unit
+		render.model[0].preFunction = function(gl,m) {
+			gl.enable(gl.BLEND) ;
+			gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA)
+//			gl.blendFuncSeparate(gl.SRC_COLOR, gl.DST_COLOR, gl.ONE, gl.ONE);
+//			gl.blendColor(1.0,1.0,1.0,0.3) ;
+		}
 	var r = wwg.createRender() ;
 
 	//parse render data
@@ -115,7 +125,11 @@ onload = function() {
 	}
 </script>
 <style>
+body {
+
+}
 #texcanvas {
+	background-color:none;
 	font-size:100px ;
 }
 </style>

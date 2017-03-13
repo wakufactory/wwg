@@ -410,7 +410,7 @@ WWModel.prototype.parametricModel =function(func,pu,pv,opt) {
 			var v = pv.start+dv*iv ;
 			var p = func(u,v) ;
 			pos.push( [p.px,p.py,p.pz] ) ;
-			uv.push([p.mu,p.mv]) ;
+			if(p.mu!=undefined) uv.push([p.mu,p.mv]) ;
 			// calc normal
 			if(p.nx==0&&p.ny==0&&p.nz==0) {
 				var dud = du/10 ; var dvd = dv/10 ;
@@ -443,7 +443,7 @@ WWModel.prototype.parametricModel =function(func,pu,pv,opt) {
 	}
 	this.obj_v = pos
 	this.obj_n = norm
-	this.obj_t = uv
+	if(uv.length>0) this.obj_t = uv
 	this.obj_i = indices 
 	return this ;
 }

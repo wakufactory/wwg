@@ -54,6 +54,11 @@ Pointer = function(t,cb) {
 			}
 		},false)	
 	}
+	t.addEventListener("contextmenu", function(ev){
+		if(cb.contextmenu) {
+			if(!cb.contextmenu({px:ev.offsetX,py:ev.offsetY})) ev.preventDefault() ;
+		}
+	},false ) ;
 	t.addEventListener("wheel", function(ev){
 		if(cb.wheel) {
 			if(!cb.wheel(ev.deltaY)) ev.preventDefault() ;
