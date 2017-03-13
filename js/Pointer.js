@@ -3,8 +3,14 @@ Pointer = function(t,cb) {
 	var self = this ;
 	var touch,gesture,EV_S,EV_E,EV_M ;
 	function pos(ev) {
-		var x = (touch)?ev.touches[0].clientX:ev.offsetX ;
-		var y = (touch)?ev.touches[0].clientY:ev.offsetY ;
+		var x,y ;
+		if(touch) {
+			x = ev.touches[0].pageX - ev.target.offsetLeft ;
+			y = ev.touches[0].pageY - ev.target.offsetTop ;
+		} else {
+			x = ev.offsetX ;
+			y = ev.offsetY ;
+		}
 		return {x:x,y:y} ;
 	}
 	t.addEventListener("mousedown", startev,false ) ;
