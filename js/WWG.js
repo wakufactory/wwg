@@ -40,6 +40,7 @@ WWG.prototype.init = function(canvas) {
 	}
 	this.ext_anis = gl.getExtension("EXT_texture_filter_anisotropic");
 	this.ext_ftex = gl.getExtension('OES_texture_float');
+	this.ext_mrt = gl.getExtension('WEBGL_draw_buffers');
 
 	this.dmodes = {"tri_strip":gl.TRIANGLE_STRIP,"tri":gl.TRIANGLES,"points":gl.POINTS,"lines":gl.LINES,"line_strip":gl.LINE_STRIP }
 	this.version = 1 ;
@@ -161,9 +162,9 @@ WWG.prototype.Render.prototype.setShader = function(data) {
 		var l = src.split("\n") ;
 		var uni = [] ;
 		var att = [] ;
+		var tu = 0 ;
 		for(i=0;i<l.length;i++) {
 			var ln = l[i] ;
-			var tu = 0 ;
 			if( ln.match(/^\s*uniform\s*([0-9a-z]+)\s*([0-9a-z_]+)(\[[^\]]+\])?/i)) {
 				var u = {type:RegExp.$1,name:RegExp.$2} ;
 				if(RegExp.$3!="") {
@@ -326,7 +327,12 @@ WWG.prototype.Render.prototype.loadTex = function(tex) {
 			resolve( self.genTex(tex.img,tex.opt) ) 
 		} else if(tex.buffer) {
 			console.log(tex.buffer);
-			resolve( tex.buffer.fb.t) ;
+			if(tex.mrt!=undefined) {
+				resolve( tex.buffer.fb.t[tex.mrt])
+			}
+			else resolve( tex.buffer.fb.t) ;
+		} else if(tex.texture) {
+			resolve( tex.texture) ;
 		} else if(tex.canvas) {
 			resolve( self.genTex(tex.canvas,tex.opt)) ;
 		} else {
@@ -341,6 +347,8 @@ WWG.prototype.Render.prototype.addTex = function(texobj) {
 WWG.prototype.Render.prototype.frameBuffer = function(os) {
 	var gl = this.gl ;
 	console.log("create framebuffer "+os.width+"x"+os.height) ;
+	var mrt = os.mrt ;
+	var fblist = [] ;
 	var frameBuffer = gl.createFramebuffer();
 	gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer);
 	//depth
@@ -349,17 +357,32 @@ WWG.prototype.Render.prototype.frameBuffer = function(os) {
 	gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, os.width, os.height);	
 	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, renderBuffer);
 	//texture
-	var fTexture = gl.createTexture()
-	gl.bindTexture(gl.TEXTURE_2D, fTexture);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, os.width, os.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fTexture, 0);
+	if(mrt) {
+		var fTexture = [] ;
+		for(var i=0;i<mrt;i++) {
+			fTexture[i] = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, fTexture[i]);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, os.width, os.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.framebufferTexture2D(gl.FRAMEBUFFER, this.wwg.ext_mrt.COLOR_ATTACHMENT0_WEBGL + i, gl.TEXTURE_2D, fTexture[i], 0);	
+			fblist.push(this.wwg.ext_mrt.COLOR_ATTACHMENT0_WEBGL + i)		
+		}
+	} else {
+		var fTexture = gl.createTexture()
+		gl.bindTexture(gl.TEXTURE_2D, fTexture);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, os.width, os.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fTexture, 0);
+	}
 	gl.bindTexture(gl.TEXTURE_2D, null);
 	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);	
 
-	return {width:os.width,height:os.height,f:frameBuffer,d:renderBuffer,t:fTexture}
+	var ret = {width:os.width,height:os.height,f:frameBuffer,d:renderBuffer,t:fTexture}
+	if(mrt) ret.fblist = fblist ;
+	return ret ;
 }
 WWG.prototype.Render.prototype.setRender =function(data) {
 	var gl = this.gl ;
@@ -399,6 +422,9 @@ WWG.prototype.Render.prototype.setRender =function(data) {
 //				console.log(self.obuf);
 				
 				if(self.env.offscreen) {// renderbuffer 
+					if(self.env.offscreen.mrt) { //MRT
+						if(!self.wwg.ext_mrt) reject("MRT not support") ;
+					}
 					self.fb = self.frameBuffer(self.env.offscreen) ;	
 				}
 				resolve(self) ;
@@ -578,6 +604,7 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 
 	if(this.env.offscreen) {// renderbuffer 
 		gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb.f);
+		if(this.env.offscreen.mrt) this.wwg.ext_mrt.drawBuffersWEBGL(this.fb.fblist);
 		gl.viewport(0,0,this.fb.width,this.fb.height) ;
 	}
 	if(!cls) this.clear() ;
