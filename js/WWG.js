@@ -17,14 +17,15 @@
 //   loadTex(tex)
 
 function WWG() {
+	this.version = "0.9.1" ;
 	this.can = null ;
 	this.gl = null ;
 	this.vsize = {"float":1,"vec2":2,"vec3":3,"vec4":4,"mat2":4,"mat3":9,"mat4":16} ;
 }
-WWG.prototype.init = function(canvas) {
+WWG.prototype.init = function(canvas,opt) {
 	this.can = canvas ;
 	var gl 
-	if(!((gl = canvas.getContext("experimental-webgl")) || (gl = canvas.getContext("webgl")))) { return false } ;
+	if(!((gl = canvas.getContext("experimental-webgl",opt)) || (gl = canvas.getContext("webgl",opt)))) { return false } ;
 	if(!window.Promise) return false ;
 	this.gl = gl 
 	this.ext_vao = gl.getExtension('OES_vertex_array_object');
@@ -41,15 +42,19 @@ WWG.prototype.init = function(canvas) {
 	this.ext_anis = gl.getExtension("EXT_texture_filter_anisotropic");
 	this.ext_ftex = gl.getExtension('OES_texture_float');
 	this.ext_mrt = gl.getExtension('WEBGL_draw_buffers');
+	if(this.ext_mrt) {
+		this.mrt_att = this.ext_mrt.COLOR_ATTACHMENT0_WEBGL ;
+		this.mrt_draw = function(b,d){return this.ext_mrt.drawBuffersWEBGL(b,d)} ;
+	}
 
 	this.dmodes = {"tri_strip":gl.TRIANGLE_STRIP,"tri":gl.TRIANGLES,"points":gl.POINTS,"lines":gl.LINES,"line_strip":gl.LINE_STRIP }
 	this.version = 1 ;
 	return true ;
 }
-WWG.prototype.init2 = function(canvas) {
+WWG.prototype.init2 = function(canvas,opt) {
 	this.can = canvas ;
 	var gl 
-	if(!((gl = canvas.getContext("experimental-webgl2")) || (gl = canvas.getContext("webgl2")))) { return false } ;
+	if(!((gl = canvas.getContext("experimental-webgl2",opt)) || (gl = canvas.getContext("webgl2",opt)))) { return false } ;
 	if(!window.Promise) return false ;
 	console.log("init for webGL2") ;
 	this.gl = gl ;
@@ -61,6 +66,11 @@ WWG.prototype.init2 = function(canvas) {
 	this.inst_draw = function(m,l,s,o,c){this.gl.drawElementsInstanced(m,l, s, o, c);}
 	this.inst_drawa = function(m,s,o,c) {this.gl.drawArrayInstanced(m, s, o, c);}
 	this.ext_anis = gl.getExtension("EXT_texture_filter_anisotropic");
+	this.ext_mrt = (gl.getParameter(gl.MAX_DRAW_BUFFERS)>1) ;
+	if(this.ext_mrt) {
+		this.mrt_att = gl.COLOR_ATTACHMENT0 ;
+		this.mrt_draw =  function(b,d){return gl.drawBuffers(b,d)} ;
+	}
 
 	this.dmodes = {"tri_strip":gl.TRIANGLE_STRIP,"tri":gl.TRIANGLES,"points":gl.POINTS,"lines":gl.LINES,"line_strip":gl.LINE_STRIP }
 	this.version = 2 ;
@@ -326,7 +336,6 @@ WWG.prototype.Render.prototype.loadTex = function(tex) {
 		} else if(tex.img instanceof Image) {
 			resolve( self.genTex(tex.img,tex.opt) ) 
 		} else if(tex.buffer) {
-			console.log(tex.buffer);
 			if(tex.mrt!=undefined) {
 				resolve( tex.buffer.fb.t[tex.mrt])
 			}
@@ -348,6 +357,13 @@ WWG.prototype.Render.prototype.frameBuffer = function(os) {
 	var gl = this.gl ;
 	console.log("create framebuffer "+os.width+"x"+os.height) ;
 	var mrt = os.mrt ;
+	var ttype = gl.UNSIGNED_BYTE ;
+	var tfilter = gl.LINEAR ;
+	if(this.wwg.ext_ftex && os.float ) {
+		ttype = gl.FLOAT ;
+		tfilter = gl.NEAREST ;
+		console.log("use float tex") ;
+	}
 	var fblist = [] ;
 	var frameBuffer = gl.createFramebuffer();
 	gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer);
@@ -362,18 +378,18 @@ WWG.prototype.Render.prototype.frameBuffer = function(os) {
 		for(var i=0;i<mrt;i++) {
 			fTexture[i] = gl.createTexture();
 			gl.bindTexture(gl.TEXTURE_2D, fTexture[i]);
-			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, os.width, os.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-			gl.framebufferTexture2D(gl.FRAMEBUFFER, this.wwg.ext_mrt.COLOR_ATTACHMENT0_WEBGL + i, gl.TEXTURE_2D, fTexture[i], 0);	
-			fblist.push(this.wwg.ext_mrt.COLOR_ATTACHMENT0_WEBGL + i)		
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, os.width, os.height, 0, gl.RGBA, ttype, null);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, tfilter);
+		    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, tfilter);
+			gl.framebufferTexture2D(gl.FRAMEBUFFER, this.wwg.mrt_att + i, gl.TEXTURE_2D, fTexture[i], 0);	
+			fblist.push(this.wwg.mrt_att + i)		
 		}
 	} else {
 		var fTexture = gl.createTexture()
 		gl.bindTexture(gl.TEXTURE_2D, fTexture);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, os.width, os.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, os.width, os.height, 0, gl.RGBA, ttype, null);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, tfilter);
+	    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, tfilter);
 		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fTexture, 0);
 	}
 	gl.bindTexture(gl.TEXTURE_2D, null);
@@ -604,7 +620,7 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 
 	if(this.env.offscreen) {// renderbuffer 
 		gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb.f);
-		if(this.env.offscreen.mrt) this.wwg.ext_mrt.drawBuffersWEBGL(this.fb.fblist);
+		if(this.env.offscreen.mrt) this.wwg.mrt_draw(this.fb.fblist);
 		gl.viewport(0,0,this.fb.width,this.fb.height) ;
 	}
 	if(!cls) this.clear() ;

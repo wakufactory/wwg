@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>WWG (MRT)</title>
+<script src="js/WWG.js"></script>
+<script src="js/CanvasMatrix.js"></script>
+<script src="js/WWModel.js"></script>
+<script>
+onload = function() {
+	var wwg = new WWG() ;
+	if(!wwg.init(document.getElementById('screen1'))) {
+		alert("not supported") ;
+		return ;
+	}
+	if(!wwg.ext_mrt) alert("MRT not supported") ;
+
+	//create render unit
+	var r1 = wwg.createRender() ;
+	var r2 = wwg.createRender() ;
+	
+	var camPos = [0.4,0.5,2.0] ;
+	var camMtx = new CanvasMatrix4().
+		lookat(camPos[0],camPos[1],camPos[2], 0,0,0, 0,1,0).
+		perspective(40,1.0,1.3,3.1) ;
+	function modelMtx(rot){
+		var mp = new CanvasMatrix4().
+			rotate(rot,1,0,0).
+			rotate(0,0,0,1);
+		var mvp = new CanvasMatrix4(mp).multRight(camMtx).getAsWebGLFloatArray()
+		var t = new CanvasMatrix4(mp).invert().transpose().getAsWebGLFloatArray()
+		return {mvpMatrix:mvp,tMatrix:t}
+	}
+	//pass1 calc model vertex and store pos,norm,depth to texture 
+	var render1 = {
+		env:{clear_color:[0,0,0,1.0],
+			offscreen:{width:1024,height:1024,mrt:3,float:true}
+		},
+		vshader:{ text:[
+			"uniform mat4 mvpMatrix;",
+			"uniform mat4 tMatrix;",
+			"attribute vec3 position;",
+			"attribute vec3 norm;",
+			"attribute vec2 uv;",
+			"varying vec4 tpos;",
+			"varying vec3 tnorm;",
+			"varying vec2 tuv;",
+			"void main() { ",
+			"	tpos = mvpMatrix * vec4(position,1.0);",
+			"	tnorm = normalize((tMatrix * vec4(norm,0.0)).xyz) ;",
+			"	tuv = uv;",
+			"	gl_Position = mvpMatrix * vec4(position, 1.0) ;",
+			"}"
+		].join("\n") },
+		fshader:{ text:[
+			"#extension GL_EXT_draw_buffers : require",
+			"precision highp float;",
+			"uniform vec4 color ;",
+			"uniform int mode ;",
+			"varying vec4 tpos;",
+			"varying vec3 tnorm;",
+			"varying vec2 tuv;",
+			"void main() {",
+			"	vec3 col = color.xyz ;",
+			"	if(mode==1) {",
+			"		float dx = mod(tuv.x*10.0,1.0) ;",
+			"		float dy = mod(tuv.y*10.0,1.0) ;",
+			"		float t = (dx<0.5) ^^ (dy<0.5)?1.0:0.5 ;",
+			"		col = vec3(col.x*t,col.y*t,col.z*t) ;",
+			"	}",
+			"	gl_FragData[0] = vec4(col.x,col.y,col.z, 1.0);",
+			"	gl_FragData[1] = vec4(tnorm,0.0) ;",
+			"	gl_FragData[2] = vec4(((tpos.z / tpos.w)+1.0)/2.0,0.0,0.0,1.0) ;",
+			"}"
+		].join("\n")},
+		model:[{
+				geo:new WWModel().primitive("torus",{wx:0.2,wy:0.2,wz:0.2,div:40}).objModel(),
+				vs_uni:modelMtx(0),
+				fs_uni:{color:[1.0,0.2,0.2,1.0],mode:0},
+			},
+			{	geo:new WWModel().primitive("plane",{wx:1.0,wz:1.0}).objModel(),
+				vs_uni:{mvpMatrix:new CanvasMatrix4().
+					translate(0,-0.3,0).
+					multRight(camMtx).getAsWebGLFloatArray(),
+					tMatrix:new CanvasMatrix4().
+					translate(0,-0.3,0).
+					invert().transpose().getAsWebGLFloatArray()},
+				fs_uni:{color:[0.8,0.8,1.0,1.0],mode:1},
+			},		
+			{name:"axis",
+				geo:{mode:"lines",
+					vtx_at:["position"],
+					vtx:[0,0,0, 10,0,0, 0,0,0, 0,10,0, 0,0,0, 0,0,10]},
+				vs_uni:{mvpMatrix:new CanvasMatrix4().
+					multRight(camMtx).getAsWebGLFloatArray(),
+					tMatrix:new CanvasMatrix4().
+					invert().transpose().getAsWebGLFloatArray()},
+				fs_uni:{color:[1.0,1.0,1.0,1.0],mode:0}},
+			],
+	}
+	// pass2 deferred rendering 
+	var render2 = {
+		env:{clear_color:[0.5,0.5,0.6,1.0]},
+		vshader:{text:[
+			"attribute vec3 position;",
+			"attribute vec2 uv;",
+
+			"varying vec2 texCoord;",
+
+			"void main() {",
+				"texCoord	= vec2(uv.x,uv.y);",
+				"gl_Position = vec4(position, 1.0) ;",
+			"}"
+		].join("\n") },
+		fshader:{text:[
+			"precision highp float;",
+			"uniform int mode;",
+			"uniform vec3 lightvec ;",
+			"uniform vec3 eyevec;",
+			"uniform sampler2D tex1;",
+			"uniform sampler2D tex2;",
+			"uniform sampler2D tex3;",
+			"varying vec2 texCoord;",
+
+			"void main() {",
+				"vec4 c1 = texture2D(tex1, texCoord);",
+				"vec4 c2 = texture2D(tex2, texCoord);",
+				"vec4 c3 = texture2D(tex3, texCoord);",
+				"vec3 c;",
+				"vec3 l = vec3(1.0);",
+				"if(mode==0) c = c1.xyz ;",
+				"if(mode==1) c = c1.xyz ;",
+				"if(mode==2) c= (c2==vec4(0.0,0.0,0.0,1.0))?vec3(0.0,0.0,0.0):",
+				"	vec3((c2.x+1.0)/2.0,(c2.y+1.0)/2.0,(c2.z+1.0)/2.0);",
+				"if(mode==3) c= c3.xyz ;",
+				"if(mode==0) {",
+				"	float diff= clamp(dot(c2.xyz,normalize(lightvec)),0.0,1.0);",
+				"	float spec= pow(clamp(dot(c2.xyz,normalize(lightvec+normalize(eyevec))),0.0,1.0),20.0);",
+				"	c = c1.xyz*(diff+0.2) + vec3(spec*0.5);", 
+				"	c *= (1.0-pow(c3.x,4.0));",
+				"}",
+				"gl_FragColor = vec4(c,1.0) ;",
+			"}"
+		].join("\n") },
+
+		texture:[
+			{name:"tex1",buffer:r1,mrt:0},
+			{name:"tex2",buffer:r1,mrt:1},
+			{name:"tex3",buffer:r1,mrt:2}
+		],
+		fs_uni:{
+			mode:2,
+			lightvec:[0.2,1.0,1.0],
+			eyevec:camPos,
+			tex1:"tex1", tex2:"tex2",tex3:"tex3"
+		},
+		model:[
+			{ //model1
+				geo:{mode:"tri_strip",
+				vtx_at:["position","uv"],
+				vtx:[
+					1,1,0,//pos
+					1.0,1.0,//uv
+					1,-1,0,
+					1.0,0,
+					-1,1,0,
+					0,1.0,
+					-1,-1,0,
+					0,0
+				],
+				idx:[0,1,2,3]}
+			}
+		]
+	}
+
+	//parse render data
+	r1.setRender(render1).then(function() {
+		r2.setRender(render2).then(function() {
+			drawloop() ;
+		})
+	}).catch(function(err){
+		console.log(err) ;
+	})
+
+	function drawloop() {
+		var st = new Date().getTime() ;
+		var lt = st ;
+		(function loop(){
+			window.requestAnimationFrame(loop) ;
+			var ct = new Date().getTime() ;
+			var tint = (ct - st) ;
+			if((ct - lt)<30) return ;
+			var model = [] ;
+			model[0] = {vs_uni:modelMtx(tint/40)} ;
+			r1.draw({model:model}) ;
+			r2.draw({fs_uni:
+				{mode:document.querySelector("input[name=mode]:checked").value}}) ;
+//			$I('fps').innerHTML = Math.floor(1000/(ct - lt)+0.5) ;
+			lt = ct ;
+		})();	
+	}
+
+} //onload
+</script>
+</head>
+<body>
+<canvas id="screen1" width="400px" height="400px"></canvas><br/>
+<label><input type=radio name=mode value=0 checked>combined</label>
+<label><input type=radio name=mode value=1>tex1(color)</label>
+<label><input type=radio name=mode value=2>tex2(normal)</label>
+<label><input type=radio name=mode value=3>tex3(depth)</label>
