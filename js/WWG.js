@@ -173,18 +173,21 @@ WWG.prototype.Render.prototype.setShader = function(data) {
 		var uni = [] ;
 		var att = [] ;
 		var tu = 0 ;
+		var um = /^\s*uniform\s*([0-9a-z]+)\s*([0-9a-z_]+)(\[[^\]]+\])?/i
+		var am = /^\s*(?:attribute|in)\s*([0-9a-z]+)\s*([0-9a-z_]+)/i
+		var res ;
 		for(i=0;i<l.length;i++) {
 			var ln = l[i] ;
-			if( ln.match(/^\s*uniform\s*([0-9a-z]+)\s*([0-9a-z_]+)(\[[^\]]+\])?/i)) {
-				var u = {type:RegExp.$1,name:RegExp.$2} ;
-				if(RegExp.$3!="") {
+			if( res = um.exec(ln) ) {
+				var u = {type:res[1],name:res[2]} ;
+				if(res[3]="") {
 					u.type = u.type+"v" ;
 				}
 				if(u.type=="sampler2D") u.texunit = tu++ ;
 				uni.push(u) ;
 			}
-			if( ln.match(/^\s*(?:attribute|in)\s*([0-9a-z]+)\s*([0-9a-z_]+)/i)) {
-				att.push( {type:RegExp.$1,name:RegExp.$2}) ;
+			if(res = am.exec(ln) ) {
+				att.push( {type:res[1],name:res[2]}) ;
 			}
 		}
 		return {uni:uni,att:att} ;

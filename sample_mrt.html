@@ -49,7 +49,7 @@ onload = function() {
 			"varying vec2 tuv;",
 			"void main() { ",
 			"	tpos = mvpMatrix * vec4(position,1.0);",
-			"	tnorm = normalize((tMatrix * vec4(norm,0.0)).xyz) ;",
+			"	tnorm = (tMatrix * vec4(norm,0.0)).xyz ;",
 			"	tuv = uv;",
 			"	gl_Position = mvpMatrix * vec4(position, 1.0) ;",
 			"}"
@@ -71,7 +71,7 @@ onload = function() {
 			"		col = vec3(col.x*t,col.y*t,col.z*t) ;",
 			"	}",
 			"	gl_FragData[0] = vec4(col.x,col.y,col.z, 1.0);",
-			"	gl_FragData[1] = vec4(tnorm,0.0) ;",
+			"	gl_FragData[1] = vec4(normalize(tnorm),0.0) ;",
 			"	gl_FragData[2] = vec4(((tpos.z / tpos.w)+1.0)/2.0,0.0,0.0,1.0) ;",
 			"}"
 		].join("\n")},

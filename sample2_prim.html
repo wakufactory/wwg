@@ -213,7 +213,8 @@ onload = function() {
 
 	void main() {
 		tuv = vec2(uv.x,1.0-uv.y) ;
-		light =clamp(dot(norm, normalize(invMatrix * vec4(lightVec,0.0)).xyz),0.0,1.0)*0.8+0.2;
+		light =clamp(dot(norm, normalize(invMatrix*vec4(lightVec,0.0)).xyz),
+			0.0,1.0)*0.8+0.2;
 		gl_Position = mvpMatrix * vec4(position, 1.0) ;
 	}
 </script>
