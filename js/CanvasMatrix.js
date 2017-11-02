@@ -509,12 +509,12 @@ CanvasMatrix4.prototype.multLeft = function(mat)
 
 CanvasMatrix4.prototype.ortho = function(left, right, bottom, top, near, far)
 {
-    var tx = (left + right) / (left - right);
+    var tx = (left + right) / (right - left);
     var ty = (top + bottom) / (top - bottom);
     var tz = (far + near) / (far - near);
     
     var matrix = new CanvasMatrix4();
-    matrix.m11 = 2 / (left - right);
+    matrix.m11 = 2 / (right - left);
     matrix.m12 = 0;
     matrix.m13 = 0;
     matrix.m14 = 0;
@@ -528,7 +528,7 @@ CanvasMatrix4.prototype.ortho = function(left, right, bottom, top, near, far)
     matrix.m34 = 0;
     matrix.m41 = tx;
     matrix.m42 = ty;
-    matrix.m43 = tz;
+    matrix.m43 = -tz;
     matrix.m44 = 1;
     
     this.multRight(matrix);
@@ -576,7 +576,15 @@ CanvasMatrix4.prototype.perspective = function(fovy, aspect, zNear, zFar)
     this.frustum(left, right, bottom, top, zNear, zFar);
     return this ;
 }
-
+CanvasMatrix4.prototype.pallarel = function(width, aspect, zNear, zFar)
+{
+    var right = width/2;
+    var left = -right;
+	var top = right / aspect ;
+	var bottom = -top ;
+    this.ortho(left, right, bottom, top, zNear, zFar);
+    return this ;
+}
 CanvasMatrix4.prototype.lookat = function(eyex, eyey, eyez, centerx, centery, centerz, upx, upy, upz)
 {
     var matrix = new CanvasMatrix4();
@@ -729,4 +737,12 @@ CanvasMatrix4.prototype._makeAdjoint = function()
     this.m24  =   this._determinant3x3(a1, a2, a3, c1, c2, c3, d1, d2, d3);
     this.m34  = - this._determinant3x3(a1, a2, a3, b1, b2, b3, d1, d2, d3);
     this.m44  =   this._determinant3x3(a1, a2, a3, b1, b2, b3, c1, c2, c3);
+}
+
+CanvasMatrix4.prototype.multVec4 = function(x,y,z,w) {
+	var xx = this.m11*x + this.m21*y + this.m31*z + this.m41*w ;
+	var yy = this.m12*x + this.m22*y + this.m32*z + this.m42*w ;
+	var zz = this.m13*x + this.m23*y + this.m33*z + this.m43*w ;
+	var ww = this.m14*x + this.m24*y + this.m34*z + this.m44*w ;
+	return [xx,yy,zz,ww] ;
 }
