@@ -162,7 +162,7 @@ WWG.prototype.Render.prototype.setUnivec = function(uni,value) {
 			}
 			this.gl.activeTexture(this.gl.TEXTURE0+uni.texunit);
 			this.gl.bindTexture(this.gl.TEXTURE_2D, this.texobj[value]);
-			if(this.data.texture[value].video) {
+			if(this.data.texture && this.data.texture[value].video) {
 				this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, this.data.texture[value].video);	
 			}
 			this.gl.uniform1i(uni.pos,uni.texunit) ;
