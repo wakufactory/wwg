@@ -17,7 +17,7 @@
 //   loadTex(tex)
 
 function WWG() {
-	this.version = "0.9.2" ;
+	this.version = "0.9.5" ;
 	this.can = null ;
 	this.gl = null ;
 	this.vsize = {"float":1,"vec2":2,"vec3":3,"vec4":4,"mat2":4,"mat3":9,"mat4":16} ;
@@ -45,6 +45,7 @@ WWG.prototype.init = function(canvas,opt) {
 	if(this.ext_mrt) {
 		this.mrt_att = this.ext_mrt.COLOR_ATTACHMENT0_WEBGL ;
 		this.mrt_draw = function(b,d){return this.ext_mrt.drawBuffersWEBGL(b,d)} ;
+	this.ext_i32 = gl.getExtension('OES_element_index_uint')
 	}
 
 	this.dmodes = {"tri_strip":gl.TRIANGLE_STRIP,"tri":gl.TRIANGLES,"points":gl.POINTS,"lines":gl.LINES,"line_strip":gl.LINE_STRIP }
@@ -109,6 +110,7 @@ WWG.prototype.loadImageAjax = function(src) {
 		})
 	})
 }
+
 // Render unit
 WWG.prototype.createRender = function() {
 	return new this.Render(this) ;
@@ -122,6 +124,8 @@ WWG.prototype.Render = function(wwg) {
 }
 WWG.prototype.Render.prototype.setUnivec = function(uni,value) {
 //	console.log("set "+uni.type+"("+uni.pos+") = "+value) ;
+	let ar = [] ;
+	if(uni.dim>0) for(let i=0;i<uni.dim;i++) ar = ar.concat(value[i])
 	switch(uni.type) {
 		case "mat2":
 			this.gl.uniformMatrix2fv(uni.pos,false,this.f32Array(value)) ;
@@ -135,20 +139,55 @@ WWG.prototype.Render.prototype.setUnivec = function(uni,value) {
 		case "vec2":
 			this.gl.uniform2fv(uni.pos, this.f32Array(value)) ;
 			break ;
+		case "vec2v":
+			this.gl.uniform2fv(uni.pos, this.f32Array(ar)) ;
+			break ;
 		case "vec3":
 			this.gl.uniform3fv(uni.pos, this.f32Array(value)) ;
+			break ;
+		case "vec3v":
+			this.gl.uniform3fv(uni.pos, this.f32Array(ar))
 			break ;
 		case "vec4":
 			this.gl.uniform4fv(uni.pos, this.f32Array(value)) ;
 			break ;
+		case "vec4v":
+			this.gl.uniform4fv(uni.pos, this.f32Array(ar)) ;
+			break ;
 		case "int":
+		case "bool":
 			this.gl.uniform1i(uni.pos,value) ;
+			break ;
+		case "ivec2":
+		case "bvec2":
+			this.gl.uniform2iv(uni.pos, this.i16Array(value)) ;
+			break ;
+		case "ivec2v":
+		case "bvec2v":
+			this.gl.uniform2iv(uni.pos, this.i16Array(ar)) ;
+			break ;
+		case "ivec3":
+		case "bvec3":
+			this.gl.uniform3iv(uni.pos, this.i16Array(value)) ;
+			break ;
+		case "ivec3v":
+		case "bvec3v":
+			this.gl.uniform3iv(uni.pos, this.i16Array(ar)) ;
+			break ;
+		case "ivec4":
+		case "bvec4":
+			this.gl.uniform4iv(uni.pos, this.i16Array(value)) ;
+			break ;
+		case "ivec4v":
+		case "bvec4v":
+			this.gl.uniform4iv(uni.pos, this.i16Array(ar)) ;
+			break ;
+		case "intv":
+		case "boolv":
+			this.gl.uniform1iv(uni.pos,this.i16Array(value)) ;
 			break ;
 		case "float":
 			this.gl.uniform1f(uni.pos,value) ;
-			break ;
-		case "intv":
-			this.gl.uniform1iv(uni.pos,this.i16Array(value)) ;
 			break ;
 		case "floatv":
 			this.gl.uniform1fv(uni.pos,this.f32Array(value)) ;
@@ -183,6 +222,7 @@ WWG.prototype.Render.prototype.setShader = function(data) {
 				var u = {type:RegExp.$1,name:RegExp.$2} ;
 				if(RegExp.$3!="") {
 					u.type = u.type+"v" ;
+					u.dim = parseInt(RegExp.$3.substr(1)) ;
 				}
 				if(u.type=="sampler2D") u.texunit = tu++ ;
 				uni.push(u) ;
@@ -492,6 +532,10 @@ WWG.prototype.Render.prototype.i16Array = function(ar) {
 	if(ar instanceof Int16Array) return ar ;
 	else return new Int16Array(ar) ;
 }
+WWG.prototype.Render.prototype.i32Array = function(ar) {
+	if(ar instanceof Uint32Array) return ar ;
+	else return new Uint32Array(ar) ;
+}
 WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 	var gl = this.gl
 	var geo = obj.geo ;
@@ -514,6 +558,7 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 		tl += this.wwg.vsize[this.vs_att[geo.vtx_at[i]].type] ;
 	}
 	tl = tl*4 ;
+
 	ret.ats = ats ;
 	ret.tl = tl ;
 	var ofs = 0 ;
@@ -568,8 +613,15 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 	}
 	if(flag && geo.idx) {
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo) ;
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, 
+		if(geo.vtx.length/(ret.tl/4) > 65535 && this.wwg.ext_i32) {
+				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, 
+			this.i32Array(geo.idx),gl.STATIC_DRAW ) ;
+			ret.i32 = true ;
+		} else {
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, 
 			this.i16Array(geo.idx),gl.STATIC_DRAW ) ;
+			ret.i32 = false ;
+		}
 	}
 	if(flag && inst) {
 		gl.bindBuffer(gl.ARRAY_BUFFER, ibuf) ;
@@ -598,7 +650,7 @@ WWG.prototype.Render.prototype.addModel = function(model) {
 	this.modelCount = this.data.model.length ;
 }
 // update attribute buffer 
-WWG.prototype.Render.prototype.updateModel = function(name,mode,buf) {
+WWG.prototype.Render.prototype.updateModel = function(name,mode,buf,subflag=true) {
 	var idx = this.getModelIdx(name) ;
 	var obuf = this.obuf[idx] ;
 	switch(mode) {
@@ -609,7 +661,18 @@ WWG.prototype.Render.prototype.updateModel = function(name,mode,buf) {
 			this.gl.bindBuffer(this.gl.ARRAY_BUFFER, obuf.inst) ;
 			break ;
 	}
-	this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, buf)	
+	if(subflag) 
+		this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.f32Array(buf))	
+	else
+		this.gl.bufferData(this.gl.ARRAY_BUFFER, this.f32Array(buf),this.gl.DYNAMIC_DRAW ) ;
+}
+WWG.prototype.Render.prototype.updateModelInstance = function(name,buf,count) {
+	var idx = this.getModelIdx(name) ;
+	var obuf = this.obuf[idx] ;
+	this.data.model[idx].inst.count = count ;
+	this.gl.bindBuffer(this.gl.ARRAY_BUFFER, obuf.inst) ; 
+//		this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.f32Array(buf))	
+		this.gl.bufferData(this.gl.ARRAY_BUFFER, this.f32Array(buf),this.gl.DYNAMIC_DRAW ) ;
 }
 WWG.prototype.Render.prototype.getModelData =function(name) {
 	var idx = this.getModelIdx(name) ;
@@ -661,6 +724,7 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 		if(update) {
 			// set modified values
 			this.pushUniValues(update) ;
+			this.pushUniValues(cmodel);
 			if(update.model) {
 				var model =update.model[b] ;
 				if(model) this.pushUniValues(model) ;
@@ -705,16 +769,19 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 			gl.enable(gl.BLEND) ;
 			if(cmodel.blend=="alpha") gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
 		}
+		if(cmodel.cull!==undefined) {
+			if(cmodel.cull) gl.enable(gl.CULL_FACE); else gl.disable(gl.CULL_FACE);
+		}
 		var gmode = this.wwg.dmodes[geo.mode]
 		if(gmode==undefined) {
 				console.log("Error: illigal draw mode") ;
 				return false ;
 		}
 		if(cmodel.inst) {
-			if(geo.idx) this.wwg.inst_draw(gmode, geo.idx.length, gl.UNSIGNED_SHORT, ofs, cmodel.inst.count);
+			if(geo.idx) this.wwg.inst_draw(gmode, geo.idx.length, (obuf.i32)?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT, ofs, cmodel.inst.count);
 			else this.wwg.inst_drawa(gmode, gl.UNSIGNED_SHORT, ofs, cmodel.inst.count);
 		} else {
-			if(geo.idx) gl.drawElements(gmode, geo.idx.length, gl.UNSIGNED_SHORT, ofs);
+			if(geo.idx) gl.drawElements(gmode, geo.idx.length, (obuf.i32)?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT, ofs);
 			else gl.drawArrays(gmode, ofs,geo.vtx.length/3);
 		}
 		if(this.wwg.ext_vao) this.wwg.vao_bind(null);
@@ -723,6 +790,9 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 		}
 		if(cmodel.blend!==undefined) {
 			gl.disable(gl.BLEND) ;
+		}
+		if(cmodel.cull!==undefined) {
+			if(this.env.cull) gl.enable(gl.CULL_FACE); else gl.disable(gl.CULL_FACE);
 		}
 		if(cmodel.postFunction) {
 			cmodel.postFunction(gl,cmodel) ;
