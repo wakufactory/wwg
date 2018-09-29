@@ -17,7 +17,7 @@
 //   loadTex(tex)
 
 function WWG() {
-	this.version = "0.9.5" ;
+	this.version = "0.9.7" ;
 	this.can = null ;
 	this.gl = null ;
 	this.vsize = {"float":1,"vec2":2,"vec3":3,"vec4":4,"mat2":4,"mat3":9,"mat4":16} ;
@@ -45,9 +45,8 @@ WWG.prototype.init = function(canvas,opt) {
 	if(this.ext_mrt) {
 		this.mrt_att = this.ext_mrt.COLOR_ATTACHMENT0_WEBGL ;
 		this.mrt_draw = function(b,d){return this.ext_mrt.drawBuffersWEBGL(b,d)} ;
-	this.ext_i32 = gl.getExtension('OES_element_index_uint')
 	}
-
+	this.ext_i32 = gl.getExtension('OES_element_index_uint')
 	this.dmodes = {"tri_strip":gl.TRIANGLE_STRIP,"tri":gl.TRIANGLES,"points":gl.POINTS,"lines":gl.LINES,"line_strip":gl.LINE_STRIP }
 	this.version = 1 ;
 	return true ;
@@ -63,16 +62,18 @@ WWG.prototype.init2 = function(canvas,opt) {
 	this.ext_vao = true ;
 	this.vao_create = function(){ return this.gl.createVertexArray()} ;
 	this.vao_bind = function(o){this.gl.bindVertexArray(o)} ;
+	this.ext_inst = true ;
 	this.inst_divisor = function(p,d){this.gl.vertexAttribDivisor(p, d)}
 	this.inst_draw = function(m,l,s,o,c){this.gl.drawElementsInstanced(m,l, s, o, c);}
 	this.inst_drawa = function(m,s,o,c) {this.gl.drawArrayInstanced(m, s, o, c);}
 	this.ext_anis = gl.getExtension("EXT_texture_filter_anisotropic");
+	this.ext_ftex = true ;
 	this.ext_mrt = (gl.getParameter(gl.MAX_DRAW_BUFFERS)>1) ;
 	if(this.ext_mrt) {
 		this.mrt_att = gl.COLOR_ATTACHMENT0 ;
 		this.mrt_draw =  function(b,d){return gl.drawBuffers(b,d)} ;
 	}
-
+	this.ext_i32 = true ;
 	this.dmodes = {"tri_strip":gl.TRIANGLE_STRIP,"tri":gl.TRIANGLES,"points":gl.POINTS,"lines":gl.LINES,"line_strip":gl.LINE_STRIP }
 	this.version = 2 ;
 	return true ;
@@ -125,7 +126,8 @@ WWG.prototype.Render = function(wwg) {
 WWG.prototype.Render.prototype.setUnivec = function(uni,value) {
 //	console.log("set "+uni.type+"("+uni.pos+") = "+value) ;
 	let ar = [] ;
-	if(uni.dim>0) for(let i=0;i<uni.dim;i++) ar = ar.concat(value[i])
+	if(uni.dim>0 && !(value instanceof Float32Array)) for(let i=0;i<uni.dim;i++) ar = ar.concat(value[i])
+	else ar = value 
 	switch(uni.type) {
 		case "mat2":
 			this.gl.uniformMatrix2fv(uni.pos,false,this.f32Array(value)) ;
@@ -357,7 +359,10 @@ WWG.prototype.Render.prototype.genTex = function(img,option) {
 	}
 	if(option.repeat==2) {
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);		
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	} else if(option.repeat==1) {
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);				
 	} else {
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
@@ -613,13 +618,13 @@ WWG.prototype.Render.prototype.setObj = function(obj,flag) {
 	}
 	if(flag && geo.idx) {
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo) ;
-		if(geo.vtx.length/(ret.tl/4) > 65535 && this.wwg.ext_i32) {
-				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, 
-			this.i32Array(geo.idx),gl.STATIC_DRAW ) ;
+		if(geo.vtx.length/(ret.tl/4) > 65536 && this.wwg.ext_i32) {
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, 
+				this.i32Array(geo.idx),gl.STATIC_DRAW ) ;
 			ret.i32 = true ;
 		} else {
 			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, 
-			this.i16Array(geo.idx),gl.STATIC_DRAW ) ;
+				this.i16Array(geo.idx),gl.STATIC_DRAW ) ;
 			ret.i32 = false ;
 		}
 	}
@@ -677,6 +682,19 @@ WWG.prototype.Render.prototype.updateModelInstance = function(name,buf,count) {
 WWG.prototype.Render.prototype.getModelData =function(name) {
 	var idx = this.getModelIdx(name) ;
 	return this.data.model[idx] ;
+}
+// update texture 
+WWG.prototype.Render.prototype.updateTex = function(idx,tex,opt) {
+	this.gl.bindTexture(this.gl.TEXTURE_2D, this.texobj[idx]);
+	if(!opt)
+		this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, tex);
+	else {
+		if(opt.wx>0 && opt.wy>0)
+			this.gl.texSubImage2D(this.gl.TEXTURE_2D, 0, opt.sx,opt.sy,opt.wx,opt.wy,this.gl.RGBA, this.gl.UNSIGNED_BYTE, tex);	
+		else 	
+			this.gl.texSubImage2D(this.gl.TEXTURE_2D, 0, opt.sx,opt.sy , this.gl.RGBA, this.gl.UNSIGNED_BYTE, tex);
+	}
+	if(this.data.texture[idx].opt && !this.data.texture[idx].opt.nomipmap) this.gl.generateMipmap(this.gl.TEXTURE_2D);
 }
 //update uniform values
 WWG.prototype.Render.prototype.pushUniValues = function(u) {
@@ -749,20 +767,22 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 			}
 			if(this.obuf[b].ibo) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.obuf[b].ibo) ;
 			if(this.obuf[b].inst) {
+				var inst = cmodel.inst ;
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.obuf[b].inst) ;
 				var aofs = 0 ;
 				for(var i=0;i<obuf.iats.length;i++) {
-//					var divisor = (inst.divisor)?inst.divisor[i]:1 ;
+					var divisor = (inst.divisor)?inst.divisor[i]:1 ;
 					var s = this.wwg.vsize[obuf.iats[i].type] ;
 					var pos = this.vs_att[obuf.iats[i].name].pos
 					gl.enableVertexAttribArray(pos);
 					gl.vertexAttribPointer(pos, s, gl.FLOAT, false, obuf.itl, aofs);
 					aofs += s*4 ;
-					this.wwg.inst_divisor(pos, 1)	
+					this.wwg.inst_divisor(pos, divisor)		
 				}
 			}
 		}
 		if(cmodel.preFunction) {
+			
 			cmodel.preFunction(gl,cmodel,this.obuf[b]) ;
 		}
 		if(cmodel.blend!==undefined) {

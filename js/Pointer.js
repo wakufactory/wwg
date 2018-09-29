@@ -4,7 +4,7 @@ Pointer = function(t,cb) {
 	var touch,gesture,EV_S,EV_E,EV_M ;
 	function pos(ev) {
 		var x,y ;
-		if(touch) {
+		if(touch && ev.touches.length>0) {
 			x = ev.touches[0].pageX - ev.target.offsetLeft ;
 			y = ev.touches[0].pageY - ev.target.offsetTop ;
 		} else {
@@ -26,7 +26,7 @@ Pointer = function(t,cb) {
 		self.dx = self.dy = 0 ;
 		self.s = pos(ev) ;
 		self.lastd = self.s ;
-		if(cb.down) if(!cb.down({sx:self.s.x,sy:self.s.y})) ev.preventDefault() ;	
+		if(cb.down) if(!cb.down({x:self.s.x,y:self.s.y,sx:self.s.x,sy:self.s.y})) ev.preventDefault() ;	
 	}
 	function setevent() {
 		if(touch) {
@@ -41,13 +41,15 @@ Pointer = function(t,cb) {
 			EV_M = "mousemove" ;	
 		}
 		t.addEventListener(EV_E, function(ev) {
+			var c = pos(ev) ;
 			var d = (ev.type=="touchend")?self.lastd:pos(ev) ;
 			self.mf = false ;
-			if(cb.up) if(!cb.up({ex:d.x,ey:d.y,dx:self.dx,dy:self.dy})) ev.preventDefault() ;
+			if(cb.up) if(!cb.up({x:c.x,y:c.y,ex:d.x,ey:d.y,dx:self.dx,dy:self.dy})) ev.preventDefault() ;
 		},false);
 		t.addEventListener(EV_O, function(ev) {
 			self.mf = false ;
-			if(cb.out) if(!cb.out({dx:self.dx,dy:self.dy})) ev.preventDefault() ;
+			var c = pos(ev) ;
+			if(cb.out) if(!cb.out({x:c.x,y:c.y,dx:self.dx,dy:self.dy})) ev.preventDefault() ;
 		},false);
 		t.addEventListener(EV_M, function(ev) {
 			if(gesture) return ;
@@ -56,32 +58,67 @@ Pointer = function(t,cb) {
 			if(self.mf) {
 				self.dx = (d.x-self.s.x) ;
 				self.dy = (d.y-self.s.y) ;
-				if(cb.move) if(!cb.move({ox:d.x,oy:d.y,dx:self.dx,dy:self.dy})) ev.preventDefault() ;
+				if(cb.move) if(!cb.move({x:d.x,y:d.y,ox:d.x,oy:d.y,dx:self.dx,dy:self.dy})) ev.preventDefault() ;
 			}
 		},false)	
 	}
-	t.addEventListener("contextmenu", function(ev){
-		if(cb.contextmenu) {
+	if(cb.contextmenu) {
+		t.addEventListener("contextmenu", function(ev){
 			if(!cb.contextmenu({px:ev.offsetX,py:ev.offsetY})) ev.preventDefault() ;
-		}
-	},false ) ;
-	t.addEventListener("wheel", function(ev){
-		if(cb.wheel) {
+		},false )
+	}
+	if(cb.wheel) {
+		t.addEventListener("wheel", function(ev){
 			if(!cb.wheel(ev.deltaY)) ev.preventDefault() ;
-		}
-	},false ) ;
-	t.addEventListener("gesturestart", function(ev){
-		gesture = true ;
-		if(cb.gesture) {
+		},false ) ;
+	}
+	if(cb.gesture) {
+		t.addEventListener("gesturestart", function(ev){
+			gesture = true ;
 			if(!cb.gesture(0,0)) ev.preventDefault() ;
-		}
-	})
-	t.addEventListener("gesturechange", function(ev){
-		if(cb.gesture) {
+		})
+		t.addEventListener("gesturechange", function(ev){
+		
 			if(!cb.gesture(ev.scale,ev.rotation)) ev.preventDefault() ;
-		}
-	})
-	t.addEventListener("gestureend", function(ev){
-		gesture = false ;
-	})
+		})
+		t.addEventListener("gestureend", function(ev){
+			gesture = false ;
+		})
+	}
+	if(cb.gyro) {
+		window.addEventListener("deviceorientation", function(ev) {
+			var or = window.orientation ;
+			var rx,ry,rz ;
+			rx = null ;ry = null; rz = null ;
+			switch( or ){
+				case 90:
+					if(ev.gamma<0) {
+						rx = ev.gamma+90 ;
+						ry = 180-ev.alpha ;
+						rz = ev.beta+180 ;						
+					} else {
+						rx = ev.gamma-90 ;
+						ry = 360-ev.alpha ;
+						rz = ev.beta ;						
+					}
+					break ;
+				case -90:
+					if(ev.gamma<0) {
+						rx = -ev.gamma-90 ;
+						ry = 180-ev.alpha ;
+						rz = -ev.beta+180 ;	
+					} else {
+						rx = -ev.gamma+90 ;
+						ry = 360-ev.alpha ;
+						rz = -ev.beta ;						
+					}
+
+					break ;	
+				default:
+		
+			}
+
+			cb.gyro({rx:rx,ry:ry,rz:rz,orientation:or}) ;
+		})
+	}
 }

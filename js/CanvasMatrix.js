@@ -38,22 +38,7 @@
         Constructor()                                   // create new CanvasMatrix4 with identity matrix
     ]
     interface CanvasMatrix4 {
-        attribute float m11;
-        attribute float m12;
-        attribute float m13;
-        attribute float m14;
-        attribute float m21;
-        attribute float m22;
-        attribute float m23;
-        attribute float m24;
-        attribute float m31;
-        attribute float m32;
-        attribute float m33;
-        attribute float m34;
-        attribute float m41;
-        attribute float m42;
-        attribute float m43;
-        attribute float m44;
+        attribute float buf[16]
 
         void load(in CanvasMatrix4 matrix);                 // copy the values from the passed matrix
         void load(in sequence<float> array);                // copy 16 floats into the matrix
@@ -85,6 +70,8 @@
 
 CanvasMatrix4 = function(m)
 {
+	this.buf = new Float32Array(16)
+	this.matrix = null
     if (typeof m == 'object') {
         if ("length" in m && m.length >= 16) {
             this.load(m);
@@ -105,49 +92,49 @@ CanvasMatrix4.prototype.load = function()
         var matrix = arguments[0];
         
         if ("length" in matrix && matrix.length == 16) {
-            this.m11 = matrix[0];
-            this.m12 = matrix[1];
-            this.m13 = matrix[2];
-            this.m14 = matrix[3];
+            this.buf[0] = matrix[0];
+            this.buf[1] = matrix[1];
+            this.buf[2] = matrix[2];
+            this.buf[3] = matrix[3];
 
-            this.m21 = matrix[4];
-            this.m22 = matrix[5];
-            this.m23 = matrix[6];
-            this.m24 = matrix[7];
+            this.buf[4] = matrix[4];
+            this.buf[5] = matrix[5];
+            this.buf[6] = matrix[6];
+            this.buf[7] = matrix[7];
 
-            this.m31 = matrix[8];
-            this.m32 = matrix[9];
-            this.m33 = matrix[10];
-            this.m34 = matrix[11];
+            this.buf[8] = matrix[8];
+            this.buf[9] = matrix[9];
+            this.buf[10] = matrix[10];
+            this.buf[11] = matrix[11];
 
-            this.m41 = matrix[12];
-            this.m42 = matrix[13];
-            this.m43 = matrix[14];
-            this.m44 = matrix[15];
+            this.buf[12] = matrix[12];
+            this.buf[13] = matrix[13];
+            this.buf[14] = matrix[14];
+            this.buf[15] = matrix[15];
             return this ;
         }
             
         if (arguments[0] instanceof CanvasMatrix4) {
         
-            this.m11 = matrix.m11;
-            this.m12 = matrix.m12;
-            this.m13 = matrix.m13;
-            this.m14 = matrix.m14;
+            this.buf[0] = matrix.buf[0];
+            this.buf[1] = matrix.buf[1];
+            this.buf[2] = matrix.buf[2];
+            this.buf[3] = matrix.buf[3];
 
-            this.m21 = matrix.m21;
-            this.m22 = matrix.m22;
-            this.m23 = matrix.m23;
-            this.m24 = matrix.m24;
+            this.buf[4] = matrix.buf[4];
+            this.buf[5] = matrix.buf[5];
+            this.buf[6] = matrix.buf[6];
+            this.buf[7] = matrix.buf[7];
 
-            this.m31 = matrix.m31;
-            this.m32 = matrix.m32;
-            this.m33 = matrix.m33;
-            this.m34 = matrix.m34;
+            this.buf[8] = matrix.buf[8];
+            this.buf[9] = matrix.buf[9];
+            this.buf[10] = matrix.buf[10];
+            this.buf[11] = matrix.buf[11];
 
-            this.m41 = matrix.m41;
-            this.m42 = matrix.m42;
-            this.m43 = matrix.m43;
-            this.m44 = matrix.m44;
+            this.buf[12] = matrix.buf[12];
+            this.buf[13] = matrix.buf[13];
+            this.buf[14] = matrix.buf[14];
+            this.buf[15] = matrix.buf[15];
             return this ;
         }
     }
@@ -159,67 +146,71 @@ CanvasMatrix4.prototype.load = function()
 CanvasMatrix4.prototype.getAsArray = function()
 {
     return [
-        this.m11, this.m12, this.m13, this.m14, 
-        this.m21, this.m22, this.m23, this.m24, 
-        this.m31, this.m32, this.m33, this.m34, 
-        this.m41, this.m42, this.m43, this.m44
+        this.buf[0], this.buf[1], this.buf[2], this.buf[3], 
+        this.buf[4], this.buf[5], this.buf[6], this.buf[7], 
+        this.buf[8], this.buf[9], this.buf[10], this.buf[11], 
+        this.buf[12], this.buf[13], this.buf[14], this.buf[15]
     ];
 }
 
 CanvasMatrix4.prototype.getAsWebGLFloatArray = function()
 {
-    return new Float32Array(this.getAsArray());
+    return this.buf
 }
-
+CanvasMatrix4.prototype.initmatrix = function() {
+	if(!this.matrix) this.matrix = new CanvasMatrix4 
+	this.matrix.makeIdentity() 
+    return this ;
+}
 CanvasMatrix4.prototype.makeIdentity = function()
 {
-    this.m11 = 1;
-    this.m12 = 0;
-    this.m13 = 0;
-    this.m14 = 0;
+    this.buf[0] = 1;
+    this.buf[1] = 0;
+    this.buf[2] = 0;
+    this.buf[3] = 0;
     
-    this.m21 = 0;
-    this.m22 = 1;
-    this.m23 = 0;
-    this.m24 = 0;
+    this.buf[4] = 0;
+    this.buf[5] = 1;
+    this.buf[6] = 0;
+    this.buf[7] = 0;
     
-    this.m31 = 0;
-    this.m32 = 0;
-    this.m33 = 1;
-    this.m34 = 0;
+    this.buf[8] = 0;
+    this.buf[9] = 0;
+    this.buf[10] = 1;
+    this.buf[11] = 0;
     
-    this.m41 = 0;
-    this.m42 = 0;
-    this.m43 = 0;
-    this.m44 = 1;
+    this.buf[12] = 0;
+    this.buf[13] = 0;
+    this.buf[14] = 0;
+    this.buf[15] = 1;
     return this ;
 }
 
 CanvasMatrix4.prototype.transpose = function()
 {
-    var tmp = this.m12;
-    this.m12 = this.m21;
-    this.m21 = tmp;
+    var tmp = this.buf[1];
+    this.buf[1] = this.buf[4];
+    this.buf[4] = tmp;
     
-    tmp = this.m13;
-    this.m13 = this.m31;
-    this.m31 = tmp;
+    tmp = this.buf[2];
+    this.buf[2] = this.buf[8];
+    this.buf[8] = tmp;
     
-    tmp = this.m14;
-    this.m14 = this.m41;
-    this.m41 = tmp;
+    tmp = this.buf[3];
+    this.buf[3] = this.buf[12];
+    this.buf[12] = tmp;
     
-    tmp = this.m23;
-    this.m23 = this.m32;
-    this.m32 = tmp;
+    tmp = this.buf[6];
+    this.buf[6] = this.buf[9];
+    this.buf[9] = tmp;
     
-    tmp = this.m24;
-    this.m24 = this.m42;
-    this.m42 = tmp;
+    tmp = this.buf[7];
+    this.buf[7] = this.buf[13];
+    this.buf[13] = tmp;
     
-    tmp = this.m34;
-    this.m34 = this.m43;
-    this.m43 = tmp;
+    tmp = this.buf[11];
+    this.buf[11] = this.buf[14];
+    this.buf[14] = tmp;
     return this ;
 }
 
@@ -236,25 +227,25 @@ CanvasMatrix4.prototype.invert = function()
     this._makeAdjoint();
 
     // Scale the adjoint matrix to get the inverse
-    this.m11 /= det;
-    this.m12 /= det;
-    this.m13 /= det;
-    this.m14 /= det;
+    this.buf[0] /= det;
+    this.buf[1] /= det;
+    this.buf[2] /= det;
+    this.buf[3] /= det;
     
-    this.m21 /= det;
-    this.m22 /= det;
-    this.m23 /= det;
-    this.m24 /= det;
+    this.buf[4] /= det;
+    this.buf[5] /= det;
+    this.buf[6] /= det;
+    this.buf[7] /= det;
     
-    this.m31 /= det;
-    this.m32 /= det;
-    this.m33 /= det;
-    this.m34 /= det;
+    this.buf[8] /= det;
+    this.buf[9] /= det;
+    this.buf[10] /= det;
+    this.buf[11] /= det;
     
-    this.m41 /= det;
-    this.m42 /= det;
-    this.m43 /= det;
-    this.m44 /= det;
+    this.buf[12] /= det;
+    this.buf[13] /= det;
+    this.buf[14] /= det;
+    this.buf[15] /= det;
     return this ;
 }
 
@@ -267,12 +258,14 @@ CanvasMatrix4.prototype.translate = function(x,y,z)
     if (z == undefined)
         z = 0;
     
-    var matrix = new CanvasMatrix4();
-    matrix.m41 = x;
-    matrix.m42 = y;
-    matrix.m43 = z;
-
-    this.multRight(matrix);
+//    this.initmatrix()
+//    this.matrix.buf[12] = x;
+//    this.matrix.buf[13] = y;
+//    this.matrix.buf[14] = z;
+//    this.multRight(this.matrix);
+    this.buf[12] += x;
+    this.buf[13] += y;
+    this.buf[14] += z;
     return this ;
 }
 
@@ -291,17 +284,18 @@ CanvasMatrix4.prototype.scale = function(x,y,z)
     else if (y == undefined)
         y = x;
     
-    var matrix = new CanvasMatrix4();
-    matrix.m11 = x;
-    matrix.m22 = y;
-    matrix.m33 = z;
+    this.initmatrix()
+    this.matrix.buf[0] = x;
+    this.matrix.buf[5] = y;
+    this.matrix.buf[10] = z;
     
-    this.multRight(matrix);
+    this.multRight(this.matrix);
     return this ;
 }
 
 CanvasMatrix4.prototype.rotate = function(angle,x,y,z)
 {
+    if(angle==0) return this 
     // angles are in degrees. Switch to radians
     angle = angle / 180 * Math.PI;
     
@@ -323,187 +317,160 @@ CanvasMatrix4.prototype.rotate = function(angle,x,y,z)
         z /= length;
     }
     
-    var mat = new CanvasMatrix4();
+    this.initmatrix()
 
     // optimize case where axis is along major axis
     if (x == 1 && y == 0 && z == 0) {
-        mat.m11 = 1;
-        mat.m12 = 0;
-        mat.m13 = 0;
-        mat.m21 = 0;
-        mat.m22 = 1 - 2 * sinA2;
-        mat.m23 = 2 * sinA * cosA;
-        mat.m31 = 0;
-        mat.m32 = -2 * sinA * cosA;
-        mat.m33 = 1 - 2 * sinA2;
-        mat.m14 = mat.m24 = mat.m34 = 0;
-        mat.m41 = mat.m42 = mat.m43 = 0;
-        mat.m44 = 1;
+        this.matrix.buf[5] = 1 - 2 * sinA2;
+        this.matrix.buf[6] = 2 * sinA * cosA;
+        this.matrix.buf[9] = -2 * sinA * cosA;
+        this.matrix.buf[10] = 1 - 2 * sinA2;
     } else if (x == 0 && y == 1 && z == 0) {
-        mat.m11 = 1 - 2 * sinA2;
-        mat.m12 = 0;
-        mat.m13 = -2 * sinA * cosA;
-        mat.m21 = 0;
-        mat.m22 = 1;
-        mat.m23 = 0;
-        mat.m31 = 2 * sinA * cosA;
-        mat.m32 = 0;
-        mat.m33 = 1 - 2 * sinA2;
-        mat.m14 = mat.m24 = mat.m34 = 0;
-        mat.m41 = mat.m42 = mat.m43 = 0;
-        mat.m44 = 1;
+        this.matrix.buf[0] = 1 - 2 * sinA2;
+        this.matrix.buf[2] = -2 * sinA * cosA;
+        this.matrix.buf[8] = 2 * sinA * cosA;
+        this.matrix.buf[10] = 1 - 2 * sinA2;
     } else if (x == 0 && y == 0 && z == 1) {
-        mat.m11 = 1 - 2 * sinA2;
-        mat.m12 = 2 * sinA * cosA;
-        mat.m13 = 0;
-        mat.m21 = -2 * sinA * cosA;
-        mat.m22 = 1 - 2 * sinA2;
-        mat.m23 = 0;
-        mat.m31 = 0;
-        mat.m32 = 0;
-        mat.m33 = 1;
-        mat.m14 = mat.m24 = mat.m34 = 0;
-        mat.m41 = mat.m42 = mat.m43 = 0;
-        mat.m44 = 1;
+        this.matrix.buf[0] = 1 - 2 * sinA2;
+        this.matrix.buf[1] = 2 * sinA * cosA;
+        this.matrix.buf[4] = -2 * sinA * cosA;
+        this.matrix.buf[5] = 1 - 2 * sinA2;
     } else {
         var x2 = x*x;
         var y2 = y*y;
         var z2 = z*z;
     
-        mat.m11 = 1 - 2 * (y2 + z2) * sinA2;
-        mat.m12 = 2 * (x * y * sinA2 + z * sinA * cosA);
-        mat.m13 = 2 * (x * z * sinA2 - y * sinA * cosA);
-        mat.m21 = 2 * (y * x * sinA2 - z * sinA * cosA);
-        mat.m22 = 1 - 2 * (z2 + x2) * sinA2;
-        mat.m23 = 2 * (y * z * sinA2 + x * sinA * cosA);
-        mat.m31 = 2 * (z * x * sinA2 + y * sinA * cosA);
-        mat.m32 = 2 * (z * y * sinA2 - x * sinA * cosA);
-        mat.m33 = 1 - 2 * (x2 + y2) * sinA2;
-        mat.m14 = mat.m24 = mat.m34 = 0;
-        mat.m41 = mat.m42 = mat.m43 = 0;
-        mat.m44 = 1;
+        this.matrix.buf[0] = 1 - 2 * (y2 + z2) * sinA2;
+        this.matrix.buf[1] = 2 * (x * y * sinA2 + z * sinA * cosA);
+        this.matrix.buf[2] = 2 * (x * z * sinA2 - y * sinA * cosA);
+        this.matrix.buf[4] = 2 * (y * x * sinA2 - z * sinA * cosA);
+        this.matrix.buf[5] = 1 - 2 * (z2 + x2) * sinA2;
+        this.matrix.buf[6] = 2 * (y * z * sinA2 + x * sinA * cosA);
+        this.matrix.buf[8] = 2 * (z * x * sinA2 + y * sinA * cosA);
+        this.matrix.buf[9] = 2 * (z * y * sinA2 - x * sinA * cosA);
+        this.matrix.buf[10] = 1 - 2 * (x2 + y2) * sinA2;
     }
-    this.multRight(mat);
+    this.multRight(this.matrix);
     return this ;
 }
 
-CanvasMatrix4.prototype.multRight = function(mat)
+CanvasMatrix4.prototype.multRight = function(matrix)
 {
-    var m11 = (this.m11 * mat.m11 + this.m12 * mat.m21
-               + this.m13 * mat.m31 + this.m14 * mat.m41);
-    var m12 = (this.m11 * mat.m12 + this.m12 * mat.m22
-               + this.m13 * mat.m32 + this.m14 * mat.m42);
-    var m13 = (this.m11 * mat.m13 + this.m12 * mat.m23
-               + this.m13 * mat.m33 + this.m14 * mat.m43);
-    var m14 = (this.m11 * mat.m14 + this.m12 * mat.m24
-               + this.m13 * mat.m34 + this.m14 * mat.m44);
+    var m11 = (this.buf[0] * matrix.buf[0] + this.buf[1] * matrix.buf[4]
+               + this.buf[2] * matrix.buf[8] + this.buf[3] * matrix.buf[12]);
+    var m12 = (this.buf[0] * matrix.buf[1] + this.buf[1] * matrix.buf[5]
+               + this.buf[2] * matrix.buf[9] + this.buf[3] * matrix.buf[13]);
+    var m13 = (this.buf[0] * matrix.buf[2] + this.buf[1] * matrix.buf[6]
+               + this.buf[2] * matrix.buf[10] + this.buf[3] * matrix.buf[14]);
+    var m14 = (this.buf[0] * matrix.buf[3] + this.buf[1] * matrix.buf[7]
+               + this.buf[2] * matrix.buf[11] + this.buf[3] * matrix.buf[15]);
 
-    var m21 = (this.m21 * mat.m11 + this.m22 * mat.m21
-               + this.m23 * mat.m31 + this.m24 * mat.m41);
-    var m22 = (this.m21 * mat.m12 + this.m22 * mat.m22
-               + this.m23 * mat.m32 + this.m24 * mat.m42);
-    var m23 = (this.m21 * mat.m13 + this.m22 * mat.m23
-               + this.m23 * mat.m33 + this.m24 * mat.m43);
-    var m24 = (this.m21 * mat.m14 + this.m22 * mat.m24
-               + this.m23 * mat.m34 + this.m24 * mat.m44);
+    var m21 = (this.buf[4] * matrix.buf[0] + this.buf[5] * matrix.buf[4]
+               + this.buf[6] * matrix.buf[8] + this.buf[7] * matrix.buf[12]);
+    var m22 = (this.buf[4] * matrix.buf[1] + this.buf[5] * matrix.buf[5]
+               + this.buf[6] * matrix.buf[9] + this.buf[7] * matrix.buf[13]);
+    var m23 = (this.buf[4] * matrix.buf[2] + this.buf[5] * matrix.buf[6]
+               + this.buf[6] * matrix.buf[10] + this.buf[7] * matrix.buf[14]);
+    var m24 = (this.buf[4] * matrix.buf[3] + this.buf[5] * matrix.buf[7]
+               + this.buf[6] * matrix.buf[11] + this.buf[7] * matrix.buf[15]);
 
-    var m31 = (this.m31 * mat.m11 + this.m32 * mat.m21
-               + this.m33 * mat.m31 + this.m34 * mat.m41);
-    var m32 = (this.m31 * mat.m12 + this.m32 * mat.m22
-               + this.m33 * mat.m32 + this.m34 * mat.m42);
-    var m33 = (this.m31 * mat.m13 + this.m32 * mat.m23
-               + this.m33 * mat.m33 + this.m34 * mat.m43);
-    var m34 = (this.m31 * mat.m14 + this.m32 * mat.m24
-               + this.m33 * mat.m34 + this.m34 * mat.m44);
+    var m31 = (this.buf[8] * matrix.buf[0] + this.buf[9] * matrix.buf[4]
+               + this.buf[10] * matrix.buf[8] + this.buf[11] * matrix.buf[12]);
+    var m32 = (this.buf[8] * matrix.buf[1] + this.buf[9] * matrix.buf[5]
+               + this.buf[10] * matrix.buf[9] + this.buf[11] * matrix.buf[13]);
+    var m33 = (this.buf[8] * matrix.buf[2] + this.buf[9] * matrix.buf[6]
+               + this.buf[10] * matrix.buf[10] + this.buf[11] * matrix.buf[14]);
+    var m34 = (this.buf[8] * matrix.buf[3] + this.buf[9] * matrix.buf[7]
+               + this.buf[10] * matrix.buf[11] + this.buf[11] * matrix.buf[15]);
 
-    var m41 = (this.m41 * mat.m11 + this.m42 * mat.m21
-               + this.m43 * mat.m31 + this.m44 * mat.m41);
-    var m42 = (this.m41 * mat.m12 + this.m42 * mat.m22
-               + this.m43 * mat.m32 + this.m44 * mat.m42);
-    var m43 = (this.m41 * mat.m13 + this.m42 * mat.m23
-               + this.m43 * mat.m33 + this.m44 * mat.m43);
-    var m44 = (this.m41 * mat.m14 + this.m42 * mat.m24
-               + this.m43 * mat.m34 + this.m44 * mat.m44);
+    var m41 = (this.buf[12] * matrix.buf[0] + this.buf[13] * matrix.buf[4]
+               + this.buf[14] * matrix.buf[8] + this.buf[15] * matrix.buf[12]);
+    var m42 = (this.buf[12] * matrix.buf[1] + this.buf[13] * matrix.buf[5]
+               + this.buf[14] * matrix.buf[9] + this.buf[15] * matrix.buf[13]);
+    var m43 = (this.buf[12] * matrix.buf[2] + this.buf[13] * matrix.buf[6]
+               + this.buf[14] * matrix.buf[10] + this.buf[15] * matrix.buf[14]);
+    var m44 = (this.buf[12] * matrix.buf[3] + this.buf[13] * matrix.buf[7]
+               + this.buf[14] * matrix.buf[11] + this.buf[15] * matrix.buf[15]);
     
-    this.m11 = m11;
-    this.m12 = m12;
-    this.m13 = m13;
-    this.m14 = m14;
+    this.buf[0] = m11;
+    this.buf[1] = m12;
+    this.buf[2] = m13;
+    this.buf[3] = m14;
     
-    this.m21 = m21;
-    this.m22 = m22;
-    this.m23 = m23;
-    this.m24 = m24;
+    this.buf[4] = m21;
+    this.buf[5] = m22;
+    this.buf[6] = m23;
+    this.buf[7] = m24;
     
-    this.m31 = m31;
-    this.m32 = m32;
-    this.m33 = m33;
-    this.m34 = m34;
+    this.buf[8] = m31;
+    this.buf[9] = m32;
+    this.buf[10] = m33;
+    this.buf[11] = m34;
     
-    this.m41 = m41;
-    this.m42 = m42;
-    this.m43 = m43;
-    this.m44 = m44;
+    this.buf[12] = m41;
+    this.buf[13] = m42;
+    this.buf[14] = m43;
+    this.buf[15] = m44;
     return this ;
 }
 
-CanvasMatrix4.prototype.multLeft = function(mat)
+CanvasMatrix4.prototype.multLeft = function(matrix)
 {
-    var m11 = (mat.m11 * this.m11 + mat.m12 * this.m21
-               + mat.m13 * this.m31 + mat.m14 * this.m41);
-    var m12 = (mat.m11 * this.m12 + mat.m12 * this.m22
-               + mat.m13 * this.m32 + mat.m14 * this.m42);
-    var m13 = (mat.m11 * this.m13 + mat.m12 * this.m23
-               + mat.m13 * this.m33 + mat.m14 * this.m43);
-    var m14 = (mat.m11 * this.m14 + mat.m12 * this.m24
-               + mat.m13 * this.m34 + mat.m14 * this.m44);
+    var m11 = (matrix.buf[0] * this.buf[0] + matrix.buf[1] * this.buf[4]
+               + matrix.buf[2] * this.buf[8] + matrix.buf[3] * this.buf[12]);
+    var m12 = (matrix.buf[0] * this.buf[1] + matrix.buf[1] * this.buf[5]
+               + matrix.buf[2] * this.buf[9] + matrix.buf[3] * this.buf[13]);
+    var m13 = (matrix.buf[0] * this.buf[2] + matrix.buf[1] * this.buf[6]
+               + matrix.buf[2] * this.buf[10] + matrix.buf[3] * this.buf[14]);
+    var m14 = (matrix.buf[0] * this.buf[3] + matrix.buf[1] * this.buf[7]
+               + matrix.buf[2] * this.buf[11] + matrix.buf[3] * this.buf[15]);
 
-    var m21 = (mat.m21 * this.m11 + mat.m22 * this.m21
-               + mat.m23 * this.m31 + mat.m24 * this.m41);
-    var m22 = (mat.m21 * this.m12 + mat.m22 * this.m22
-               + mat.m23 * this.m32 + mat.m24 * this.m42);
-    var m23 = (mat.m21 * this.m13 + mat.m22 * this.m23
-               + mat.m23 * this.m33 + mat.m24 * this.m43);
-    var m24 = (mat.m21 * this.m14 + mat.m22 * this.m24
-               + mat.m23 * this.m34 + mat.m24 * this.m44);
+    var m21 = (matrix.buf[4] * this.buf[0] + matrix.buf[5] * this.buf[4]
+               + matrix.buf[6] * this.buf[8] + matrix.buf[7] * this.buf[12]);
+    var m22 = (matrix.buf[4] * this.buf[1] + matrix.buf[5] * this.buf[5]
+               + matrix.buf[6] * this.buf[9] + matrix.buf[7] * this.buf[13]);
+    var m23 = (matrix.buf[4] * this.buf[2] + matrix.buf[5] * this.buf[6]
+               + matrix.buf[6] * this.buf[10] + matrix.buf[7] * this.buf[14]);
+    var m24 = (matrix.buf[4] * this.buf[3] + matrix.buf[5] * this.buf[7]
+               + matrix.buf[6] * this.buf[11] + matrix.buf[7] * this.buf[15]);
 
-    var m31 = (mat.m31 * this.m11 + mat.m32 * this.m21
-               + mat.m33 * this.m31 + mat.m34 * this.m41);
-    var m32 = (mat.m31 * this.m12 + mat.m32 * this.m22
-               + mat.m33 * this.m32 + mat.m34 * this.m42);
-    var m33 = (mat.m31 * this.m13 + mat.m32 * this.m23
-               + mat.m33 * this.m33 + mat.m34 * this.m43);
-    var m34 = (mat.m31 * this.m14 + mat.m32 * this.m24
-               + mat.m33 * this.m34 + mat.m34 * this.m44);
+    var m31 = (matrix.buf[8] * this.buf[0] + matrix.buf[9] * this.buf[4]
+               + matrix.buf[10] * this.buf[8] + matrix.buf[11] * this.buf[12]);
+    var m32 = (matrix.buf[8] * this.buf[1] + matrix.buf[9] * this.buf[5]
+               + matrix.buf[10] * this.buf[9] + matrix.buf[11] * this.buf[13]);
+    var m33 = (matrix.buf[8] * this.buf[2] + matrix.buf[9] * this.buf[6]
+               + matrix.buf[10] * this.buf[10] + matrix.buf[11] * this.buf[14]);
+    var m34 = (matrix.buf[8] * this.buf[3] + matrix.buf[9] * this.buf[7]
+               + matrix.buf[10] * this.buf[11] + matrix.buf[11] * this.buf[15]);
 
-    var m41 = (mat.m41 * this.m11 + mat.m42 * this.m21
-               + mat.m43 * this.m31 + mat.m44 * this.m41);
-    var m42 = (mat.m41 * this.m12 + mat.m42 * this.m22
-               + mat.m43 * this.m32 + mat.m44 * this.m42);
-    var m43 = (mat.m41 * this.m13 + mat.m42 * this.m23
-               + mat.m43 * this.m33 + mat.m44 * this.m43);
-    var m44 = (mat.m41 * this.m14 + mat.m42 * this.m24
-               + mat.m43 * this.m34 + mat.m44 * this.m44);
+    var m41 = (matrix.buf[12] * this.buf[0] + matrix.buf[13] * this.buf[4]
+               + matrix.buf[14] * this.buf[8] + matrix.buf[15] * this.buf[12]);
+    var m42 = (matrix.buf[12] * this.buf[1] + matrix.buf[13] * this.buf[5]
+               + matrix.buf[14] * this.buf[9] + matrix.buf[15] * this.buf[13]);
+    var m43 = (matrix.buf[12] * this.buf[2] + matrix.buf[13] * this.buf[6]
+               + matrix.buf[14] * this.buf[10] + matrix.buf[15] * this.buf[14]);
+    var m44 = (matrix.buf[12] * this.buf[3] + matrix.buf[13] * this.buf[7]
+               + matrix.buf[14] * this.buf[11] + matrix.buf[15] * this.buf[15]);
     
-    this.m11 = m11;
-    this.m12 = m12;
-    this.m13 = m13;
-    this.m14 = m14;
+    this.buf[0] = m11;
+    this.buf[1] = m12;
+    this.buf[2] = m13;
+    this.buf[3] = m14;
 
-    this.m21 = m21;
-    this.m22 = m22;
-    this.m23 = m23;
-    this.m24 = m24;
+    this.buf[4] = m21;
+    this.buf[5] = m22;
+    this.buf[6] = m23;
+    this.buf[7] = m24;
 
-    this.m31 = m31;
-    this.m32 = m32;
-    this.m33 = m33;
-    this.m34 = m34;
+    this.buf[8] = m31;
+    this.buf[9] = m32;
+    this.buf[10] = m33;
+    this.buf[11] = m34;
 
-    this.m41 = m41;
-    this.m42 = m42;
-    this.m43 = m43;
-    this.m44 = m44;
+    this.buf[12] = m41;
+    this.buf[13] = m42;
+    this.buf[14] = m43;
+    this.buf[15] = m44;
     return this ;
 }
 
@@ -513,57 +480,39 @@ CanvasMatrix4.prototype.ortho = function(left, right, bottom, top, near, far)
     var ty = (top + bottom) / (top - bottom);
     var tz = (far + near) / (far - near);
     
-    var matrix = new CanvasMatrix4();
-    matrix.m11 = 2 / (right - left);
-    matrix.m12 = 0;
-    matrix.m13 = 0;
-    matrix.m14 = 0;
-    matrix.m21 = 0;
-    matrix.m22 = 2 / (top - bottom);
-    matrix.m23 = 0;
-    matrix.m24 = 0;
-    matrix.m31 = 0;
-    matrix.m32 = 0;
-    matrix.m33 = -2 / (far - near);
-    matrix.m34 = 0;
-    matrix.m41 = tx;
-    matrix.m42 = ty;
-    matrix.m43 = -tz;
-    matrix.m44 = 1;
+    this.initmatrix()
+    this.matrix.buf[0] = 2 / (right - left);
+    this.matrix.buf[5] = 2 / (top - bottom);
+    this.matrix.buf[10] = -2 / (far - near);
+    this.matrix.buf[12] = tx;
+    this.matrix.buf[13] = ty;
+    this.matrix.buf[14] = -tz;
     
-    this.multRight(matrix);
+    this.multRight(this.matrix);
     return this ;
 }
 
 CanvasMatrix4.prototype.frustum = function(left, right, bottom, top, near, far)
 {
-    var matrix = new CanvasMatrix4();
+    this.initmatrix()
     var A = (right + left) / (right - left);
     var B = (top + bottom) / (top - bottom);
     var C = -(far + near) / (far - near);
     var D = -(2 * far * near) / (far - near);
     
-    matrix.m11 = (2 * near) / (right - left);
-    matrix.m12 = 0;
-    matrix.m13 = 0;
-    matrix.m14 = 0;
+    this.matrix.buf[0] = (2 * near) / (right - left);
     
-    matrix.m21 = 0;
-    matrix.m22 = 2 * near / (top - bottom);
-    matrix.m23 = 0;
-    matrix.m24 = 0;
+    this.matrix.buf[5] = 2 * near / (top - bottom);
     
-    matrix.m31 = A;
-    matrix.m32 = B;
-    matrix.m33 = C;
-    matrix.m34 = -1;
+    this.matrix.buf[8] = A;
+    this.matrix.buf[9] = B;
+    this.matrix.buf[10] = C;
+    this.matrix.buf[11] = -1;
     
-    matrix.m41 = 0;
-    matrix.m42 = 0;
-    matrix.m43 = D;
-    matrix.m44 = 0;
+    this.matrix.buf[14] = D;
+    this.matrix.buf[15] = 0;
     
-    this.multRight(matrix);
+    this.multRight(this.matrix);
     return this ;
 }
 
@@ -587,7 +536,7 @@ CanvasMatrix4.prototype.pallarel = function(width, aspect, zNear, zFar)
 }
 CanvasMatrix4.prototype.lookat = function(eyex, eyey, eyez, centerx, centery, centerz, upx, upy, upz)
 {
-    var matrix = new CanvasMatrix4();
+    this.initmatrix()
     
     // Make rotation matrix
 
@@ -629,28 +578,24 @@ CanvasMatrix4.prototype.lookat = function(eyex, eyey, eyez, centerx, centery, ce
         yz /= mag;
     }
 
-    matrix.m11 = xx;
-    matrix.m12 = yx;
-    matrix.m13 = zx;
-    matrix.m14 = 0;
+    this.matrix.buf[0] = xx;
+    this.matrix.buf[1] = yx;
+    this.matrix.buf[2] = zx;
     
-    matrix.m21 = xy;
-    matrix.m22 = yy;
-    matrix.m23 = zy;
-    matrix.m24 = 0;
+    this.matrix.buf[4] = xy;
+    this.matrix.buf[5] = yy;
+    this.matrix.buf[6] = zy;
     
-    matrix.m31 = xz;
-    matrix.m32 = yz;
-    matrix.m33 = zz;
-    matrix.m34 = 0;
+    this.matrix.buf[8] = xz;
+    this.matrix.buf[9] = yz;
+    this.matrix.buf[10] = zz;
     
-    matrix.m41 = -(xx * eyex + xy * eyey + xz * eyez);
-    matrix.m42 = -(yx * eyex + yy * eyey + yz * eyez);
-    matrix.m43 = -(zx * eyex + zy * eyey + zz * eyez);
-    matrix.m44 = 1;
+    this.matrix.buf[12] = -(xx * eyex + xy * eyey + xz * eyez);
+    this.matrix.buf[13] = -(yx * eyex + yy * eyey + yz * eyez);
+    this.matrix.buf[14] = -(zx * eyex + zy * eyey + zz * eyez);
  //   matrix.translate(-eyex, -eyey, -eyez);
     
-    this.multRight(matrix);
+    this.multRight(this.matrix);
     return this ;
 }
 
@@ -669,25 +614,25 @@ CanvasMatrix4.prototype._determinant3x3 = function(a1, a2, a3, b1, b2, b3, c1, c
 
 CanvasMatrix4.prototype._determinant4x4 = function()
 {
-    var a1 = this.m11;
-    var b1 = this.m12; 
-    var c1 = this.m13;
-    var d1 = this.m14;
+    var a1 = this.buf[0];
+    var b1 = this.buf[1]; 
+    var c1 = this.buf[2];
+    var d1 = this.buf[3];
 
-    var a2 = this.m21;
-    var b2 = this.m22; 
-    var c2 = this.m23;
-    var d2 = this.m24;
+    var a2 = this.buf[4];
+    var b2 = this.buf[5]; 
+    var c2 = this.buf[6];
+    var d2 = this.buf[7];
 
-    var a3 = this.m31;
-    var b3 = this.m32; 
-    var c3 = this.m33;
-    var d3 = this.m34;
+    var a3 = this.buf[8];
+    var b3 = this.buf[9]; 
+    var c3 = this.buf[10];
+    var d3 = this.buf[11];
 
-    var a4 = this.m41;
-    var b4 = this.m42; 
-    var c4 = this.m43;
-    var d4 = this.m44;
+    var a4 = this.buf[12];
+    var b4 = this.buf[13]; 
+    var c4 = this.buf[14];
+    var d4 = this.buf[15];
 
     return a1 * this._determinant3x3(b2, b3, b4, c2, c3, c4, d2, d3, d4)
          - b1 * this._determinant3x3(a2, a3, a4, c2, c3, c4, d2, d3, d4)
@@ -697,52 +642,52 @@ CanvasMatrix4.prototype._determinant4x4 = function()
 
 CanvasMatrix4.prototype._makeAdjoint = function()
 {
-    var a1 = this.m11;
-    var b1 = this.m12; 
-    var c1 = this.m13;
-    var d1 = this.m14;
+    var a1 = this.buf[0];
+    var b1 = this.buf[1]; 
+    var c1 = this.buf[2];
+    var d1 = this.buf[3];
 
-    var a2 = this.m21;
-    var b2 = this.m22; 
-    var c2 = this.m23;
-    var d2 = this.m24;
+    var a2 = this.buf[4];
+    var b2 = this.buf[5]; 
+    var c2 = this.buf[6];
+    var d2 = this.buf[7];
 
-    var a3 = this.m31;
-    var b3 = this.m32; 
-    var c3 = this.m33;
-    var d3 = this.m34;
+    var a3 = this.buf[8];
+    var b3 = this.buf[9]; 
+    var c3 = this.buf[10];
+    var d3 = this.buf[11];
 
-    var a4 = this.m41;
-    var b4 = this.m42; 
-    var c4 = this.m43;
-    var d4 = this.m44;
+    var a4 = this.buf[12];
+    var b4 = this.buf[13]; 
+    var c4 = this.buf[14];
+    var d4 = this.buf[15];
 
     // Row column labeling reversed since we transpose rows & columns
-    this.m11  =   this._determinant3x3(b2, b3, b4, c2, c3, c4, d2, d3, d4);
-    this.m21  = - this._determinant3x3(a2, a3, a4, c2, c3, c4, d2, d3, d4);
-    this.m31  =   this._determinant3x3(a2, a3, a4, b2, b3, b4, d2, d3, d4);
-    this.m41  = - this._determinant3x3(a2, a3, a4, b2, b3, b4, c2, c3, c4);
+    this.buf[0]  =   this._determinant3x3(b2, b3, b4, c2, c3, c4, d2, d3, d4);
+    this.buf[4]  = - this._determinant3x3(a2, a3, a4, c2, c3, c4, d2, d3, d4);
+    this.buf[8]  =   this._determinant3x3(a2, a3, a4, b2, b3, b4, d2, d3, d4);
+    this.buf[12]  = - this._determinant3x3(a2, a3, a4, b2, b3, b4, c2, c3, c4);
         
-    this.m12  = - this._determinant3x3(b1, b3, b4, c1, c3, c4, d1, d3, d4);
-    this.m22  =   this._determinant3x3(a1, a3, a4, c1, c3, c4, d1, d3, d4);
-    this.m32  = - this._determinant3x3(a1, a3, a4, b1, b3, b4, d1, d3, d4);
-    this.m42  =   this._determinant3x3(a1, a3, a4, b1, b3, b4, c1, c3, c4);
+    this.buf[1]  = - this._determinant3x3(b1, b3, b4, c1, c3, c4, d1, d3, d4);
+    this.buf[5]  =   this._determinant3x3(a1, a3, a4, c1, c3, c4, d1, d3, d4);
+    this.buf[9]  = - this._determinant3x3(a1, a3, a4, b1, b3, b4, d1, d3, d4);
+    this.buf[13]  =   this._determinant3x3(a1, a3, a4, b1, b3, b4, c1, c3, c4);
         
-    this.m13  =   this._determinant3x3(b1, b2, b4, c1, c2, c4, d1, d2, d4);
-    this.m23  = - this._determinant3x3(a1, a2, a4, c1, c2, c4, d1, d2, d4);
-    this.m33  =   this._determinant3x3(a1, a2, a4, b1, b2, b4, d1, d2, d4);
-    this.m43  = - this._determinant3x3(a1, a2, a4, b1, b2, b4, c1, c2, c4);
+    this.buf[2]  =   this._determinant3x3(b1, b2, b4, c1, c2, c4, d1, d2, d4);
+    this.buf[6]  = - this._determinant3x3(a1, a2, a4, c1, c2, c4, d1, d2, d4);
+    this.buf[10]  =   this._determinant3x3(a1, a2, a4, b1, b2, b4, d1, d2, d4);
+    this.buf[14]  = - this._determinant3x3(a1, a2, a4, b1, b2, b4, c1, c2, c4);
         
-    this.m14  = - this._determinant3x3(b1, b2, b3, c1, c2, c3, d1, d2, d3);
-    this.m24  =   this._determinant3x3(a1, a2, a3, c1, c2, c3, d1, d2, d3);
-    this.m34  = - this._determinant3x3(a1, a2, a3, b1, b2, b3, d1, d2, d3);
-    this.m44  =   this._determinant3x3(a1, a2, a3, b1, b2, b3, c1, c2, c3);
+    this.buf[3]  = - this._determinant3x3(b1, b2, b3, c1, c2, c3, d1, d2, d3);
+    this.buf[7]  =   this._determinant3x3(a1, a2, a3, c1, c2, c3, d1, d2, d3);
+    this.buf[11]  = - this._determinant3x3(a1, a2, a3, b1, b2, b3, d1, d2, d3);
+    this.buf[15]  =   this._determinant3x3(a1, a2, a3, b1, b2, b3, c1, c2, c3);
 }
 
 CanvasMatrix4.prototype.multVec4 = function(x,y,z,w) {
-	var xx = this.m11*x + this.m21*y + this.m31*z + this.m41*w ;
-	var yy = this.m12*x + this.m22*y + this.m32*z + this.m42*w ;
-	var zz = this.m13*x + this.m23*y + this.m33*z + this.m43*w ;
-	var ww = this.m14*x + this.m24*y + this.m34*z + this.m44*w ;
+	var xx = this.buf[0]*x + this.buf[4]*y + this.buf[8]*z + this.buf[12]*w ;
+	var yy = this.buf[1]*x + this.buf[5]*y + this.buf[9]*z + this.buf[13]*w ;
+	var zz = this.buf[2]*x + this.buf[6]*y + this.buf[10]*z + this.buf[14]*w ;
+	var ww = this.buf[3]*x + this.buf[7]*y + this.buf[11]*z + this.buf[15]*w ;
 	return [xx,yy,zz,ww] ;
 }

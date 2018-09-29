@@ -25,7 +25,7 @@ WWModel.prototype.loadAjax = function(src) {
 	})
 }
 // load .obj file
-WWModel.prototype.loadObj = function(path,scale) {
+WWModel.prototype.loadObj = async function(path,scale) {
 	var self = this ;
 	if(!scale) scale=1.0 ;
 	return new Promise(function(resolve,reject) {
@@ -128,6 +128,7 @@ WWModel.prototype.objModel  = function(addvec,mode) {
 		}
 		ii += p.length ;
 	}
+	console.log(" vert:"+v.length);
 	console.log(" poly:"+ibuf.length/3);
 	for(var i=0;i<v.length;i++) {
 		vbuf.push( v[i][0] ) ;
@@ -164,6 +165,7 @@ WWModel.prototype.objModel  = function(addvec,mode) {
 			}
 		}
 	}
+
 //	console.log(vbuf) ;
 //	console.log(ibuf) ;
 	this.ibuf = ibuf ;
@@ -219,11 +221,12 @@ WWModel.prototype.wireframe = function() {
 // mult 4x4 matrix
 WWModel.prototype.multMatrix4 = function(m4) {
 	var inv = new CanvasMatrix4(m4).invert().transpose() ;
+	var buf = m4.getAsArray()
 	for(var i=0;i<this.obj_v.length;i++) {
 		var v = this.obj_v[i] ;
-		var vx = m4.m11 * v[0] + m4.m21 * v[1] + m4.m31 * v[2] + m4.m41 ;
-		var vy = m4.m12 * v[0] + m4.m22 * v[1] + m4.m32 * v[2] + m4.m42 ;
-		var vz = m4.m13 * v[0] + m4.m23 * v[1] + m4.m33 * v[2] + m4.m43 ;
+		var vx = buf[0] * v[0] + buf[4] * v[1] + buf[8] * v[2] + buf[12] ;
+		var vy = buf[1] * v[0] + buf[5] * v[1] + buf[9] * v[2] + buf[13] ;
+		var vz = buf[2] * v[0] + buf[6] * v[1] + buf[10] * v[2] + buf[14] ;
 		this.obj_v[i] = [vx,vy,vz] ;
 	}
 }
@@ -325,11 +328,11 @@ WWModel.prototype.primitive  = function(type,param) {
 			var z = Math.cos(PHI * v)*wz, x = Math.sin(PHI * v)*wx;
 			p.push([x,0,z])
 			n.push([0,1,0])
-			t.push([v,1])	
+			t.push([(x/wx+1)/2,(z/wz+1)/2])	
 		}
 		p.push([0,0,0])
 		n.push([0,1,0])
-		t.push([0,0])
+		t.push([0.5,0.5])
 		for(var j =0; j < div-1 ;j++) {
 			s.push([j,j+1,div]) ;
 		}
