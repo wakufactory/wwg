@@ -17,7 +17,7 @@
 //   loadTex(tex)
 
 function WWG() {
-	this.version = "0.9.7" ;
+	this.version = "0.9.8" ;
 	this.can = null ;
 	this.gl = null ;
 	this.vsize = {"float":1,"vec2":2,"vec3":3,"vec4":4,"mat2":4,"mat3":9,"mat4":16} ;
@@ -101,11 +101,12 @@ WWG.prototype.loadImageAjax = function(src) {
 	return new Promise(function(resolve,reject){
 		self.loadAjax(src,{type:"blob"}).then(function(b){
 			var timg = new Image ;
+			const url = URL.createObjectURL(b);
 			timg.onload = function() {
+				URL.revokeObjectURL(url)
 				resolve(timg) ;
 			}
-			timg.src = URL.createObjectURL(b);
-			b = null ;
+			timg.src = url
 		}).catch(function(err){
 			resolve(null) ;
 		})
@@ -195,12 +196,7 @@ WWG.prototype.Render.prototype.setUnivec = function(uni,value) {
 			this.gl.uniform1fv(uni.pos,this.f32Array(value)) ;
 			break ;
 		case "sampler2D":
-			if(typeof value == 'string') {
-				for(var i=0;i<this.data.texture.length;i++) {
-					if(this.data.texture[i].name==value) break;
-				}
-				value = i ;
-			}
+			if(typeof value == 'string') value = this.getTexIndex(value)
 			this.gl.activeTexture(this.gl.TEXTURE0+uni.texunit);
 			this.gl.bindTexture(this.gl.TEXTURE_2D, this.texobj[value]);
 			if(this.data.texture && this.data.texture[value].video) {
@@ -383,7 +379,7 @@ WWG.prototype.Render.prototype.loadTex = function(tex) {
 			if(tex.opt && tex.opt.cors) {
 				self.wwg.loadImageAjax(tex.src).then(function(img) {
 					resolve( self.genTex(img,tex.opt)) ;
-				});
+				}).catch((err)=>reject(err));
 			} else {
 				var img = new Image() ;
 				img.onload = function() {
@@ -412,9 +408,20 @@ WWG.prototype.Render.prototype.loadTex = function(tex) {
 		}
 	})
 }
-WWG.prototype.Render.prototype.addTex = function(texobj) {
-	this.texobj.push(texobj) ;
-	return this.texobj.length-1 ;
+WWG.prototype.Render.prototype.getTexIndex = function(name) {
+	for(var i=0;i<this.data.texture.length;i++) {
+		if(this.data.texture[i].name==name) break;
+	}
+	return i
+}
+WWG.prototype.Render.prototype.addTex = function(texdata) {
+	return new Promise((resolve,reject)=>{
+		this.data.texture.push(texdata)
+		this.loadTex(texdata).then((tex)=>{
+			this.texobj.push(tex) ;
+			resolve(this.texobj.length-1)
+		}).catch((err)=>reject(err));
+	})
 }
 WWG.prototype.Render.prototype.frameBuffer = function(os) {
 	var gl = this.gl ;
@@ -685,6 +692,7 @@ WWG.prototype.Render.prototype.getModelData =function(name) {
 }
 // update texture 
 WWG.prototype.Render.prototype.updateTex = function(idx,tex,opt) {
+	if(typeof idx == 'string') idx = this.getTexIndex(idx)
 	this.gl.bindTexture(this.gl.TEXTURE_2D, this.texobj[idx]);
 	if(!opt)
 		this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, tex);

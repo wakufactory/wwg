@@ -293,13 +293,13 @@ WWModel.prototype.primitive  = function(type,param) {
 	case "cylinder":
 		for(var i = 0 ; i <= div ; ++i) {
 			var v = i / (0.0+div);
-			var z = Math.cos(PHI * v)*wz, x = Math.sin(PHI * v)*wx;
+			var z = Math.sin(PHI * v)*wz, x = Math.cos(PHI * v)*wx;
 			p.push([x,wy,z])
 			n.push([x*ninv,0,z*ninv])
-			t.push([v,1])
+			t.push([1-v,1])
 			p.push([x,-wy,z])
 			n.push([x*ninv,0,z*ninv,0])
-			t.push([v,0])			
+			t.push([1-v,0])			
 		}
 		for(var j =0; j < div ;j++) {
 			if(ninv<0)s.push([j*2,j*2+2,j*2+3,j*2+1]) ;
