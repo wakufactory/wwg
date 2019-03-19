@@ -779,7 +779,7 @@ WWG.prototype.Render.prototype.draw = function(update,cls) {
 //console.log("draw");
 
 	var gl = this.gl ;
-//	gl.useProgram(this.program);
+	gl.useProgram(this.program);
 	if(this.env.offscreen) {// renderbuffer 
 		gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb.f);
 		if(this.env.offscreen.mrt) this.wwg.mrt_draw(this.fb.fblist);
