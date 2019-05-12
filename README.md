@@ -1,15 +1,16 @@
-#Simple WebGL wrapper library
+# Simple WebGL wrapper library
 
-##Target 
+## Target 
   Chrome,Firefox,Safari,Edge
 
-##Modules
+## Modules
  - js/WWG.js  WWG main module
  - js/WWModel.js  model generator
  - js/CanvasMatrix.js  matrix calc library
  - js/Pointer.js  mouse and touch handling
  
-##Usage
+## Usage
 
 See samples :P
+https://wakufactory.github.io/wwg/
 
